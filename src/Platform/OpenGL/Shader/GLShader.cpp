@@ -136,7 +136,7 @@ namespace MxEngine
 		Logger::Instance().Debug("OpenGL::Shader", "shader program created with id = " + std::to_string(id));
 	}
 
-    void GLShader::LoadFromSource(const std::string& vertex, const std::string& fragment)
+    void GLShader::LoadFromString(const std::string& vertex, const std::string& fragment)
     {
 		Logger::Instance().Debug("OpenGL::Shader", "compiling vertex shader: [[raw source]]");
 		unsigned int vertexShader = CompileShader((GLenum)ShaderType::VERTEX_SHADER, vertex, "[[raw source]]");
@@ -147,7 +147,7 @@ namespace MxEngine
 		Logger::Instance().Debug("OpenGL::Shader", "shader program created with id = " + std::to_string(id));
     }
 
-	void GLShader::LoadFromSource(const std::string& vertex, const std::string& geometry, const std::string& fragment)
+	void GLShader::LoadFromString(const std::string& vertex, const std::string& geometry, const std::string& fragment)
 	{
 		Logger::Instance().Debug("OpenGL::Shader", "compiling vertex shader: [[raw source]]");
 		unsigned int vertexShader = CompileShader((GLenum)ShaderType::VERTEX_SHADER, vertex, "[[raw source]]");
@@ -167,6 +167,14 @@ namespace MxEngine
 		Bind();
 		GLCALL(glUniform1f(location, f));
 	}
+
+    void GLShader::SetUniformVec2(const std::string& name, const Vector2& vec) const
+    {
+		int location = GetUniformLocation(name);
+		if (location == -1) return;
+		Bind();
+		GLCALL(glUniform2f(location, vec.x, vec.y));
+    }
 
 	void GLShader::SetUniformVec3(const std::string& name, const Vector3& vec) const
 	{

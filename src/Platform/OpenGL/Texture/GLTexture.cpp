@@ -34,6 +34,25 @@
 
 namespace MxEngine
 {
+	GLenum formatTable[] =
+	{
+		GL_RGB,
+		GL_RGBA,
+		GL_RGB16,
+		GL_RGB16F,
+		GL_RGBA16,
+		GL_RGBA16F,
+		GL_RGB32F,
+		GL_RGBA32F,
+	};
+
+	GLenum wrapTable[] =
+	{
+		GL_CLAMP_TO_EDGE,
+		GL_MIRRORED_REPEAT,
+		GL_REPEAT,
+	};
+
 	void GLTexture::FreeTexture()
 	{
 		if (id != 0)
@@ -51,7 +70,7 @@ namespace MxEngine
 	}
 
 	GLTexture::GLTexture(GLTexture&& texture) noexcept
-		: width(texture.width), height(texture.height), channels(texture.channels)
+		: width(texture.width), height(texture.height), channels(texture.channels), textureType(texture.textureType)
 	{
 		this->id = texture.id;
 		texture.id = 0;
@@ -61,9 +80,9 @@ namespace MxEngine
 		texture.channels = 0;
 	}
 
-	GLTexture::GLTexture(const std::string& filepath, bool genMipmaps, bool flipImage)
+	GLTexture::GLTexture(const std::string& filepath, TextureWrap wrap, bool genMipmaps, bool flipImage)
 	{
-		Load(filepath, genMipmaps, flipImage);
+		Load(filepath, wrap, genMipmaps, flipImage);
 	}
 
 	GLTexture::~GLTexture()
@@ -71,7 +90,7 @@ namespace MxEngine
 		this->FreeTexture();
 	}
 
-	void GLTexture::Load(const std::string& filepath, bool genMipmaps, bool flipImage)
+	void GLTexture::Load(const std::string& filepath, TextureWrap wrap, bool genMipmaps, bool flipImage)
 	{
 		Image image = ImageLoader::LoadImage(filepath, flipImage);
 		this->filepath = filepath;
@@ -81,17 +100,17 @@ namespace MxEngine
 			Logger::Instance().Error("Texture", "file with name '" + filepath + "' was not found");
 			return;
 		}
-		MX_ASSERT(image.channels == 3);
 		this->width = image.width;
 		this->height = image.height;
-		this->channels = image.channels;
+		this->channels = 3;
+		this->textureType = GL_TEXTURE_2D;
 
 		GLCALL(glBindTexture(GL_TEXTURE_2D, id));
 		GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)width, (GLsizei)height, 0, GL_RGB, GL_UNSIGNED_BYTE, image.data));
 
 		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapTable[(int)wrap]));
+		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapTable[(int)wrap]));
 		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST));
 		if (genMipmaps)
 		{
@@ -101,32 +120,37 @@ namespace MxEngine
 		ImageLoader::FreeImage(image);
 	}
 
-	void GLTexture::Load(RawDataPointer data, int width, int height, bool genMipmaps)
+	void GLTexture::Load(RawDataPointer data, int width, int height, TextureFormat format, TextureWrap wrap, bool genMipmaps)
 	{
 		this->filepath = "[[raw data]]";
 		this->width = width;
 		this->height = height;
 		this->channels = 3;
+		this->textureType = GL_TEXTURE_2D;
+
+		GLenum type = (format == TextureFormat::RGB16F || format == TextureFormat::RGB32F ||
+			format == TextureFormat::RGBA16F) ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
 		GLCALL(glBindTexture(GL_TEXTURE_2D, id));
-		GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)width, (GLsizei)height, 0, GL_RGB, GL_UNSIGNED_BYTE, data));
+		GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, formatTable[(int)format], (GLsizei)width, (GLsizei)height, 0, GL_RGB, type, data));
 
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 		if (genMipmaps)
 		{
+			GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
+			GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+			GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapTable[(int)wrap]));
+			GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapTable[(int)wrap]));
 			GLCALL(glGenerateMipmap(GL_TEXTURE_2D));
 		}
 	}
 
-	void GLTexture::LoadMipmaps(Texture::RawDataPointer* data, size_t mipmaps, int biggestWidth, int biggestHeight)
+	void GLTexture::LoadMipmaps(Texture::RawDataPointer* data, size_t mipmaps, int biggestWidth, int biggestHeight, TextureWrap wrap)
 	{
 		this->filepath = "[[raw data]]";
 		this->width = biggestWidth;
 		this->height = biggestHeight;
 		this->channels = 3;
+		this->textureType = GL_TEXTURE_2D;
 
 		GLint level = 0;
 		GLsizei width = biggestWidth;
@@ -145,35 +169,50 @@ namespace MxEngine
 
 		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
 		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapTable[(int)wrap]));
+		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapTable[(int)wrap]));
 	}
 
-	void GLTexture::LoadDepth(int width, int height)
+	void GLTexture::LoadDepth(int width, int height, TextureWrap wrap)
 	{
 		this->filepath = "[[depth]]";
 		this->width = width;
 		this->height = height;
+		this->textureType = GL_TEXTURE_2D;
 	
 		this->Bind();
 
 		GLCALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr));
 		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapTable[(int)wrap]));
+		GLCALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapTable[(int)wrap]));
 	}
+
+    void GLTexture::LoadMultisample(int width, int height, TextureFormat format, int samples, TextureWrap wrap)
+    {
+		this->filepath = "[[multisample]]";
+		this->width = width;
+		this->height = height;
+		this->textureType = GL_TEXTURE_2D_MULTISAMPLE;
+
+		this->Bind();
+
+		GLenum glFormat = formatTable[(int)format];
+
+		GLCALL(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, glFormat, width, height, GL_TRUE));
+    }
 
 	void GLTexture::Bind() const
 	{
 		GLCALL(glActiveTexture(GL_TEXTURE0 + this->activeId));
-		GLCALL(glBindTexture(GL_TEXTURE_2D, id));
+		GLCALL(glBindTexture(this->textureType, id));
 	}
 
 	void GLTexture::Unbind() const
 	{
 		GLCALL(glActiveTexture(GL_TEXTURE0 + this->activeId));
-		GLCALL(glBindTexture(GL_TEXTURE_2D, 0));
+		GLCALL(glBindTexture(this->textureType, 0));
 	}
 
 	void GLTexture::Bind(IBindable::IdType id) const
@@ -186,6 +225,11 @@ namespace MxEngine
 	{
 		return this->filepath;
 	}
+
+    unsigned int GLTexture::GetTextureType() const
+    {
+		return this->textureType;
+    }
 
 	size_t GLTexture::GetWidth() const
 	{

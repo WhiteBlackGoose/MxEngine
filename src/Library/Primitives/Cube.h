@@ -42,11 +42,12 @@ namespace MxEngine
         {
             auto resourceName = Format(FMT_STRING("MxCube_{0}"), Application::Get()->GenerateResourceId());
             auto data = Cube::GetCubeData();
-            this->SubmitData(resourceName, data.first, data.second);
+            AABB aabb { MakeVector3(-0.5f), MakeVector3(0.5f) };
+            this->SubmitData(std::move(resourceName), aabb, make_view(data.first), make_view(data.second));
         }
 
     private:
-        static std::pair<ArrayView<float>, ArrayView<unsigned int>> GetCubeData()
+        static std::pair<std::vector<float>, std::vector<unsigned int>> GetCubeData()
         {
             constexpr std::array vertex =
             {
@@ -91,29 +92,40 @@ namespace MxEngine
                 VectorInt3(3, 3, 5), VectorInt3(7, 1, 5), VectorInt3(6, 0, 5),
             };
             constexpr size_t dataSize = face.size() * AbstractPrimitive::VertexSize;
-            static std::array<float, dataSize> data; // data must be static as its view is returned
-            static std::array<unsigned int, face.size()> indicies; // data must be static as its view is returned
-            INVOKE_ONCE(
-                for (size_t i = 0; i < face.size(); i++)
-                {
-                    indicies[i] = (unsigned int)i;
+            std::vector<float> data(dataSize); 
+            std::vector<unsigned int> indicies(face.size()); 
 
-                    const Vector3& v = vertex[face[i].x];
-                    data[8 * i + 0] = v.x;
-                    data[8 * i + 1] = v.y;
-                    data[8 * i + 2] = v.z;
+            for (size_t i = 0; i < face.size(); i++)
+            {
+                indicies[i] = (unsigned int)i;
 
-                    const Vector2& vt = texture[face[i].y];
-                    data[8 * i + 3] = vt.x;
-                    data[8 * i + 4] = vt.y;
+                const Vector3& v = vertex[face[i].x];
+                data[VertexSize * i + 0] = v.x;
+                data[VertexSize * i + 1] = v.y;
+                data[VertexSize * i + 2] = v.z;
 
-                    const Vector3& vn = normal[face[i].z];
-                    data[8 * i + 5] = vn.x;
-                    data[8 * i + 6] = vn.y;
-                    data[8 * i + 7] = vn.z;
-                }
-            );
-            return { data, indicies };
+                const Vector2& vt = texture[face[i].y];
+                data[VertexSize * i + 3] = vt.x;
+                data[VertexSize * i + 4] = vt.y;
+
+                const Vector3& vn = normal[face[i].z];
+                data[VertexSize * i + 5] = vn.x;
+                data[VertexSize * i + 6] = vn.y;
+                data[VertexSize * i + 7] = vn.z;
+
+                size_t tanIndex = i - i % 3;
+                auto tanbitan = ComputeTangentSpace(
+                    vertex[face[tanIndex].x],  vertex[face[tanIndex + 1].x],  vertex[face[tanIndex + 2].x],
+                    texture[face[tanIndex].y], texture[face[tanIndex + 1].y], texture[face[tanIndex + 2].y]
+                );
+                data[VertexSize * i +  8] = tanbitan[0].x;
+                data[VertexSize * i +  9] = tanbitan[0].y;
+                data[VertexSize * i + 10] = tanbitan[0].z;
+                data[VertexSize * i + 11] = tanbitan[1].x;
+                data[VertexSize * i + 12] = tanbitan[1].y;
+                data[VertexSize * i + 13] = tanbitan[1].z;
+            }
+            return std::make_pair(std::move(data), std::move(indicies));
         }
     };
 }

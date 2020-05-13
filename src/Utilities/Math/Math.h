@@ -33,6 +33,7 @@
 #include "Vendors/glm/gtx/quaternion.hpp"
 #include "Core/Macro/Macro.h"
 #include <cmath>
+#include <array>
 #include <algorithm>
 
 namespace MxEngine
@@ -433,29 +434,6 @@ namespace MxEngine
 		return glm::golden_ratio<T>();
 	}
 
-	inline std::pair<Vector3, Vector3>MinMaxComponents(Vector3* verteces, size_t size)
-	{
-		Vector3 maxCoords(-1.0f * std::numeric_limits<float>::max());
-		Vector3 minCoords(std::numeric_limits<float>::max());
-		for (size_t i = 0; i < size; i++)
-		{
-			minCoords.x = std::min(minCoords.x, verteces[i].x);
-			minCoords.y = std::min(minCoords.y, verteces[i].y);
-			minCoords.z = std::min(minCoords.z, verteces[i].z);
-
-			maxCoords.x = std::max(maxCoords.x, verteces[i].x);
-			maxCoords.y = std::max(maxCoords.y, verteces[i].y);
-			maxCoords.z = std::max(maxCoords.z, verteces[i].z);
-		}
-		return { minCoords, maxCoords };
-	}
-
-	inline Vector3 FindCenter(Vector3* verteces, size_t size)
-	{
-		auto coords = MinMaxComponents(verteces, size);
-		return (coords.first + coords.second) * 0.5f;
-	}
-
 	inline constexpr float SignedSqrt(float x)
 	{
 		if (x < 0.0f) return -std::sqrt(-x);
@@ -478,7 +456,7 @@ namespace MxEngine
 		return ((n <= 2) ? 1 : 1 + Log2(n / 2));
 	}
 
-	inline constexpr size_t FloorToLog2(size_t n)
+	inline constexpr size_t ToNearestPowTwo(size_t n)
 	{
 		return static_cast<size_t>(1) << Log2(n);
 	}
@@ -501,6 +479,60 @@ namespace MxEngine
 		for (typename T::length_type i = 0; i < vec.length(); i++)
 			result[i] = Radians(vec[i]);
 		return result;
+	}
+
+	template<typename T>
+	inline T VectorMax(const T& v1, const T& v2)
+	{
+		T result(0.0f);
+		for (typename T::length_type i = 0; i < result.length(); i++)
+		{
+			result[i] = std::max(v1[i], v2[i]);
+		}
+		return result;
+	}
+
+	template<typename T>
+	inline T VectorMin(const T& v1, const T& v2)
+	{
+		T result(0.0f);
+		for (typename T::length_type i = 0; i < result.length(); i++)
+		{
+			result[i] = std::min(v1[i], v2[i]);
+		}
+		return result;
+	}
+
+	inline std::pair<Vector3, Vector3>MinMaxComponents(Vector3* verteces, size_t size)
+	{
+		Vector3 maxCoords(-1.0f * std::numeric_limits<float>::max());
+		Vector3 minCoords(std::numeric_limits<float>::max());
+		for (size_t i = 0; i < size; i++)
+		{
+			minCoords = VectorMin(minCoords, verteces[i]);
+			maxCoords = VectorMax(maxCoords, verteces[i]);
+		}
+		return { minCoords, maxCoords };
+	}
+
+	inline constexpr std::array<Vector3, 2> ComputeTangentSpace(
+		const Vector3& v1, const Vector3& v2, const Vector3& v3,
+		const Vector2& t1, const Vector2& t2, const Vector2& t3
+	)
+	{
+		// Edges of the triangle : postion delta
+		auto deltaPos1 = v2 - v1;
+		auto deltaPos2 = v3 - v1;
+
+		// texture delta
+		auto deltaT1 = t2 - t1;
+		auto deltaT2 = t3 - t1;
+
+		float r = 1.0f / (deltaT1.x * deltaT2.y - deltaT1.y * deltaT2.x);
+		auto tangent = (deltaPos1 * deltaT2.y - deltaPos2 * deltaT1.y) * r;
+		auto bitangent = (deltaPos2 * deltaT1.x - deltaPos1 * deltaT2.x) * r;
+
+		return { tangent, bitangent };
 	}
 
 	inline Matrix3x3 RotateAngles(float xRot, float yRot, float zRot)

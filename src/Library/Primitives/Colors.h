@@ -54,12 +54,15 @@ namespace MxEngine
             VIOLET,
             SKYBLUE,
             SPRING,
+            FLAT_NORMAL,
+            PINK,
+            SALAD,
             GREY,
         };
 
         static inline Texture* MakeTexture(uint8_t r, uint8_t g, uint8_t b)
         {
-            auto& manager = Application::Get()->GetCurrentScene().GetResourceManager<Texture>();
+            auto& manager = Application::Get()->GetGlobalScene().GetResourceManager<Texture>();
             auto name = Format(FMT_STRING("MxColor{0}_{1}_{2}"), r, g, b);
             
             if (!manager.Exists(name))
@@ -120,6 +123,12 @@ namespace MxEngine
                 return MakeTexture((uint8_t)0,   127, 255);
             case Colors::SPRING:
                 return MakeTexture((uint8_t)0,   255, 127);
+            case Colors::FLAT_NORMAL:
+                return MakeTexture((uint8_t)127, 127, 255);
+            case Colors::PINK:
+                return MakeTexture((uint8_t)255, 127, 127);
+            case Colors::SALAD:
+                return MakeTexture((uint8_t)127, 255, 127);
             case Colors::GREY:
                 return MakeTexture((uint8_t)127, 127, 127);
             default:

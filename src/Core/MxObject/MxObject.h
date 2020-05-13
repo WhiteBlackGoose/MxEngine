@@ -37,17 +37,20 @@ namespace MxEngine
 {
 	class MxObject : public IDrawable, public IMovable
 	{		
-		Vector3 forwardVec{ 0.0f, 0.0f, 1.0f }, upVec{ 0.0f, 1.0f, 0.0f }, rightVec{ 1.0f, 0.0f, 0.0f };
-		Vector4 renderColor{ 1.0f, 1.0f, 1.0f, 1.0f };
-		bool shouldRender = true;
-		bool instanceUpdate = true;
-		UniqueRef<Instancing<MxObject>> instances;
-
-		void ReserveInstances(size_t count, UsageType usage);
 	protected:
 		Mesh* ObjectMesh = nullptr;
+	private:
+		Vector3 forwardVec{ 0.0f, 0.0f, 1.0f }, upVec{ 0.0f, 1.0f, 0.0f }, rightVec{ 1.0f, 0.0f, 0.0f };
+		Vector4 renderColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+		UniqueRef<Instancing<MxObject>> instances;
+		bool shouldRender = true;
+		bool instanceUpdate = true;
+		mutable AABB boundingBox;
+
+		void ReserveInstances(size_t count, UsageType usage);
 	public:
 		using ArrayBufferType = const float*;
+		bool UseLOD = true;
 
 		float TranslateSpeed = 1.0f;
 		float RotateSpeed = 1.0f;
@@ -87,15 +90,14 @@ namespace MxEngine
 		void SetAutoBuffering(bool value = true);
 		void BufferInstances();
 
-		AABB GetAABB() const;
+		const AABB& GetAABB() const;
 
 		// Inherited via IDrawable
 		virtual size_t GetIterator() const override;
 		virtual bool IsLast(size_t iterator) const override;
 		virtual size_t GetNext(size_t iterator) const override;
 		virtual const IRenderable& GetCurrent(size_t iterator) const override;
-		virtual const Matrix4x4& GetModelMatrix() const override;
-		virtual const Matrix3x3& GetNormalMatrix() const override;
+		virtual const Transform& GetTransform() const override;
 		virtual bool HasShader() const override;
 		virtual const Vector4& GetRenderColor() const override;
 		virtual const Shader& GetShader() const override;

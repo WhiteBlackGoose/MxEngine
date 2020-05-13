@@ -61,6 +61,7 @@ namespace MxEngine
 		virtual void Flush() const override;
 		virtual void Finish() const override;
 		virtual void SetViewport(int x, int y, int width, int height) const override;
+		virtual GLRenderer& UseColorMask(bool r, bool g, bool b, bool a) override;
 		virtual GLRenderer& UseSampling(bool value = true) override;
 		virtual GLRenderer& UseDepthBuffer(bool value = true) override;
 		virtual GLRenderer& UseReversedDepth(bool value = true) override;
@@ -68,6 +69,7 @@ namespace MxEngine
 		virtual GLRenderer& UseClearColor(float r, float g, float b, float a = 0.0f) override;
 		virtual GLRenderer& UseBlending(BlendFactor src, BlendFactor dist) override;
 		virtual GLRenderer& UseAnisotropicFiltering(float factor) override;
+		virtual GLRenderer& UseLineWidth(size_t width) override;
 		virtual float GetLargestAnisotropicFactor() const override;
 	};
 }

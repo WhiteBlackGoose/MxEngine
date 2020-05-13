@@ -46,9 +46,6 @@ namespace MxEngine
 			: container(container), id(id)
 		{
 			this->ObjectTransform.Scale(0.25f);
-			auto& material = this->GetMesh()->GetRenderObjects().front().GetMaterial();
-			material.f_Ka = 0.0f;
-			material.f_Kd = 0.0f;
 		}
 
 		inline virtual void OnUpdate() override
@@ -60,7 +57,7 @@ namespace MxEngine
 				this->ObjectTransform.SetTranslation(light.Position);
 
 				auto& material = this->GetMesh()->GetRenderObjects().front().GetMaterial();
-				material.Ke = Clamp(light.GetAmbientColor() + light.GetDiffuseColor(), MakeVector3(0.0f), MakeVector3(1.0f));
+				material.Ke = light.AmbientColor + light.DiffuseColor;
 			}
 			else
 			{
@@ -105,8 +102,10 @@ namespace MxEngine
 
 		inline void Bind()
 		{
+			auto& scene = Application::Get()->GetCurrentScene();
 			std::string objectName = this->name + std::to_string(this->id);
-			Application::Get()->GetCurrentScene().AddObject(objectName, MakeUnique<LightObject<LightType>>(this->container, this->id));
+			if (scene.HasObject(objectName)) scene.DestroyObject(objectName);
+			scene.AddObject(objectName, MakeUnique<LightObject<LightType>>(this->container, this->id));
 		}
 
 		inline void Unbind()

@@ -64,13 +64,16 @@ namespace MxEngine
 		TimeStep timeDelta;
 		Scene* currentScene = nullptr;
 		int counterFPS;
+		Vector4 debugColor = MakeVector4(1.0f, 0.0f, 0.0f, 1.0f);
+		bool drawBoxes     = false;
+		bool drawSpheres   = false;
+		bool overlayDebug  = false;
 		bool shouldClose   = false;
-		bool debugMeshDraw = false;
 		bool isRunning     = false;
 		bool drawLighting  = true;
 
 		void CreateConsoleBindings(DeveloperConsole& console);
-		void DrawObjects(bool meshes);
+		void DrawObjects();
 		void InvokeUpdate();
 		bool VerifyApplicationState();
 		void VerifyRendererState();
@@ -85,10 +88,12 @@ namespace MxEngine
 	public:
 		void CreateContext();
 		void ExecuteScript(Script& script);
+		void ExecuteScript(const std::string& script);
+		void ExecuteScript(const char* script);
 
 		void ToggleDeveloperConsole(bool isVisible);
 		void ToggleLighting(bool state = true);
-		void ToggleMeshDrawing(bool state = true);
+		void ToggleDebugDraw(bool aabb, bool spheres, const Vector4& color,  bool overlay = false);
 
 		AppEventDispatcher& GetEventDispatcher();
 		RenderController& GetRenderer();
@@ -105,6 +110,7 @@ namespace MxEngine
 		Counter::CounterType GenerateResourceId();
 		float GetTimeDelta() const;
 		int GetCurrentFPS() const;
+		void SetMSAASampling(size_t samples);
 		void Run();
 		bool IsRunning() const;
 		void CloseApplication();

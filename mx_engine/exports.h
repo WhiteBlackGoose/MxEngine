@@ -388,24 +388,29 @@ public:
 
 class TextureWrapper : public Texture, public py::wrapper<Texture>
 {
-    virtual void Load(const std::string& filepath, bool genMipmaps = true, bool flipImage = true) override
+    virtual void Load(const std::string& filepath, TextureWrap wrap = TextureWrap::REPEAT, bool genMipmaps = true, bool flipImage = true) override
     {
-        this->get_override("load")(filepath, genMipmaps, flipImage);
+        this->get_override("load")(filepath, wrap, genMipmaps, flipImage);
     }
 
-    virtual void LoadMipmaps(RawDataPointer* data, size_t mipmaps, int width, int height) override
+    virtual void LoadMipmaps(RawDataPointer* data, size_t mipmaps, int width, int height, TextureWrap wrap = TextureWrap::REPEAT) override
     {
-        this->get_override("load_mipmaps")(data, mipmaps, width, height);
+        this->get_override("load_mipmaps")(data, mipmaps, width, height, wrap);
     }
 
-    virtual void LoadDepth(int width, int height) override
+    virtual void LoadDepth(int width, int height, TextureWrap wrap = TextureWrap::CLAMP_TO_EDGE) override
     {
-        this->get_override("load_depth")(width, height);
+        this->get_override("load_depth")(width, height, wrap);
     }
 
-    virtual void Load(RawDataPointer data, int width, int height, bool genMipmaps = true) override
+    virtual void LoadMultisample(int width, int height, TextureFormat format, int samples, TextureWrap wrap = TextureWrap::REPEAT) override
     {
-        this->get_override("load_raw")(data, width, height, genMipmaps);
+        this->get_override("load_multisample")(width, height, format, samples, wrap);
+    }
+
+    virtual void Load(RawDataPointer data, int width, int height, TextureFormat format = TextureFormat::RGBA, TextureWrap wrap = TextureWrap::REPEAT, bool genMipmaps = true) override
+    {
+        this->get_override("load_raw")(data, width, height, format, wrap, genMipmaps);
     }
 
     virtual void Bind(IBindable::IdType id) const override
@@ -433,6 +438,11 @@ class TextureWrapper : public Texture, public py::wrapper<Texture>
         return this->get_override("channels")();
     }
 
+    virtual unsigned int GetTextureType() const override
+    {
+        return this->get_override("type")();
+    }
+
     virtual void Bind() const override
     {
         this->get_override("bind")();
@@ -457,12 +467,12 @@ public:
         this->get_override("load")(vertex, fragment);
     }
 
-    virtual void LoadFromSource(const std::string& vertex, const std::string& geometry, const std::string& fragment) override
+    virtual void LoadFromString(const std::string& vertex, const std::string& geometry, const std::string& fragment) override
     {
         this->get_override("load_source")(vertex, geometry, fragment);
     }
 
-    virtual void LoadFromSource(const std::string& vertex, const std::string& fragment) override
+    virtual void LoadFromString(const std::string& vertex, const std::string& fragment) override
     {
         this->get_override("load_source")(vertex, fragment);
     }
@@ -470,6 +480,11 @@ public:
     virtual void SetUniformFloat(const std::string& name, float f) const override
     {
         this->get_override("set_float")(name, f);
+    }
+
+    virtual void SetUniformVec2(const std::string& name, const Vector2& vec) const override
+    {
+        this->get_override("set_vec2")(name, vec);
     }
 
     virtual void SetUniformVec3(const std::string& name, const Vector3& vec) const override
@@ -869,10 +884,13 @@ BOOST_PYTHON_MODULE(mx_engine)
     py::def("degrees", DegreesVec<Vector3>);
     py::def("radians", RadiansVec<Vector3>);
 
+    using ExecuteScriptStrFunc = void (Application::*)(const std::string&);
+    using ExecuteScriptFileFunc = void (Application::*)(Script&);
     py::class_<Application, boost::noncopyable>("application", py::no_init)
         .def("create_context", &Application::CreateContext)
         .def("create_scene", RefGetter(CreatePySceneWrapper))
-        .def("execute", &Application::ExecuteScript)
+        .def("execute", (ExecuteScriptFileFunc)&Application::ExecuteScript)
+        .def("execute", (ExecuteScriptStrFunc)&Application::ExecuteScript)
         .def("load_scene", &Application::LoadScene)
         .def("get_scene", RefGetter(&Application::GetScene))
         .def("scene_exists", &Application::SceneExists)
@@ -887,7 +905,10 @@ BOOST_PYTHON_MODULE(mx_engine)
         .def("listen_mouse", AddEventListenerWrapper<MouseMoveEvent>)
         .def("listen_fps", AddEventListenerWrapper<FpsUpdateEvent>)
         .def("listen_render", AddEventListenerWrapper<RenderEvent>)
+        .def("listen_resize", AddEventListenerWrapper<WindowResizeEvent>)
         .def("use_lighting", &Application::ToggleLighting)
+        .def("use_debug_meshes", &Application::ToggleDebugDraw)
+        .add_property("set_msaa", &Application::SetMSAASampling)
         .add_property("global", RefGetter(&Application::GetGlobalScene))
         .add_property("is_running", &Application::IsRunning)
         .add_property("scene", RefGetter(&Application::GetCurrentScene))
@@ -921,6 +942,11 @@ BOOST_PYTHON_MODULE(mx_engine)
         .def("is_held", &KeyEvent::IsHeld)
         .def("is_pressed", &KeyEvent::IsPressed)
         .def("is_released", &KeyEvent::IsReleased)
+        ;
+
+    py::class_<WindowResizeEvent>("resize_event", py::no_init)
+        .def_readonly("old", &WindowResizeEvent::Old)
+        .def_readonly("new", &WindowResizeEvent::New)
         ;
 
     py::class_<FpsUpdateEvent>("fps_update_event", py::no_init)
@@ -968,13 +994,30 @@ BOOST_PYTHON_MODULE(mx_engine)
         ;
 
     py::class_<Skybox, boost::noncopyable>("skybox", py::no_init)
-        .def_readwrite("shader", &Skybox::SkyboxShader)
-        .def_readwrite("texture", &Skybox::SkyboxShader)
         .def("rotate_x", &Skybox::RotateX)
         .def("rotate_y", &Skybox::RotateY)
         .def("rotate_z", &Skybox::RotateZ)
+        .def_readwrite("texture", &Skybox::SkyboxTexture)
         .add_property("rotation", RefGetter(&Skybox::GetRotation))
         .add_property("matrix", RefGetter(&Skybox::GetRotationMatrix))
+        .add_property("shader", RefGetter(&Skybox::GetShader))
+        ;
+
+    py::enum_<TextureFormat>("tex_format")
+        .value("RGB", TextureFormat::RGB)
+        .value("RGBA", TextureFormat::RGBA)
+        .value("RGB16", TextureFormat::RGB16)
+        .value("RGBA16", TextureFormat::RGBA16)
+        .value("RGB16F", TextureFormat::RGB16F)
+        .value("RGBA16F", TextureFormat::RGBA16F)
+        .value("RGBA32F", TextureFormat::RGBA32F)
+        .value("RGB32F", TextureFormat::RGB32F)
+        ;
+
+    py::enum_<TextureWrap>("tex_wrap")
+        .value("MIRRORED_REPEAT", TextureWrap::MIRRORED_REPEAT)
+        .value("CLAMP_TO_EDGE", TextureWrap::CLAMP_TO_EDGE)
+        .value("REPEAT", TextureWrap::REPEAT)
         ;
 
     py::enum_<KeyCode>("keycode")
@@ -1257,29 +1300,32 @@ BOOST_PYTHON_MODULE(mx_engine)
     py::class_<ShaderWrapper, py::bases<IBindable>, boost::noncopyable>("shader", py::init())
         .def("load", py::pure_virtual((LoadVsFs)&Shader::Load))
         .def("load", py::pure_virtual((LoadVsGsFs)&Shader::Load))
-        .def("load_source", py::pure_virtual((LoadVsFs)&Shader::LoadFromSource))
-        .def("load_source", py::pure_virtual((LoadVsGsFs)&Shader::LoadFromSource))
+        .def("load_source", py::pure_virtual((LoadVsFs)&Shader::LoadFromString))
+        .def("load_source", py::pure_virtual((LoadVsGsFs)&Shader::LoadFromString))
         .def("set_int", py::pure_virtual(&Shader::SetUniformInt))
         .def("set_float", py::pure_virtual(&Shader::SetUniformFloat))
+        .def("set_vec2", py::pure_virtual(&Shader::SetUniformVec2))
         .def("set_vec3", py::pure_virtual(&Shader::SetUniformVec3))
         .def("set_vec4", py::pure_virtual(&Shader::SetUniformVec4))
         .def("set_mat3", py::pure_virtual(&Shader::SetUniformMat3))
         .def("set_mat4", py::pure_virtual(&Shader::SetUniformMat4))
         ;
 
-    using LoadTextureFile = void(Texture::*)(const std::string&, bool, bool);
-    using LoadTextureRaw = void(Texture::*)(Texture::RawDataPointer, int, int, bool);
+    using LoadTextureFile = void(Texture::*)(const std::string&, TextureWrap, bool, bool);
+    using LoadTextureRaw = void(Texture::*)(Texture::RawDataPointer, int, int, TextureFormat, TextureWrap, bool);
     using BindTextureId = void(Texture::*)(Texture::IdType);
 
     py::class_<TextureWrapper, py::bases<IBindable>, boost::noncopyable>("texture", py::init())
         .def("load", py::pure_virtual((LoadTextureFile)&Texture::Load))
         .def("load_raw", py::pure_virtual((LoadTextureRaw)&Texture::Load))
         .def("load_depth", py::pure_virtual(&Texture::LoadDepth))
+        .def("load_multisample", py::pure_virtual(&Texture::LoadMultisample))
         .def("bind", py::pure_virtual((BindTextureId)&Texture::Bind))
         .add_property("width", &Texture::GetWidth)
         .add_property("height", &Texture::GetHeight)
         .add_property("path", RefGetter(&Texture::GetPath))
         .add_property("channels", &Texture::GetChannelCount)
+        .add_property("type", &Texture::GetTextureType)
         ;
 
     py::class_<VertexBufferWrapper, py::bases<IBindable>, boost::noncopyable>("vertex_buffer", py::init())
@@ -1338,15 +1384,16 @@ BOOST_PYTHON_MODULE(mx_engine)
 
     py::class_<RenderController, boost::noncopyable>("render_controller", py::no_init)
         .def("set_viewport", &RenderController::SetViewport)
-        .def("set_pcf", &RenderController::SetPCFDistance)
-        .def("use_culling", &RenderController::ToggleFaceCulling)
         .def("use_reversed_depth", &RenderController::ToggleReversedDepth)
         .def("set_anisotropic", &RenderController::SetAnisotropicFiltering)
         .def_readwrite("object_shader", &RenderController::ObjectShader)
-        .def_readwrite("mesh_shader", &RenderController::MeshShader)
         .def_readwrite("depth_texture_shader", &RenderController::DepthTextureShader)
         .def_readwrite("depth_cubemap_shader", &RenderController::DepthCubeMapShader)
         .def_readwrite("default_texture", &RenderController::DefaultTexture)
+        .add_property("bloom_iters", &RenderController::GetBloomIterations, &RenderController::SetBloomIterations)
+        .add_property("pcf", &RenderController::GetPCFDIstance, &RenderController::SetPCFDistance)
+        .add_property("exposure", &RenderController::GetHDRExposure, &RenderController::SetHDRExposure)
+        .add_property("bloom", &RenderController::GetBloomWeight, &RenderController::SetBloomWeight)
         .add_property("dir_depth_size",
             &RenderController::GetDepthBufferSize<DirectionalLight>, 
             &RenderController::SetDepthBufferSize<DirectionalLight>)
@@ -1356,27 +1403,27 @@ BOOST_PYTHON_MODULE(mx_engine)
         ;
 
     py::class_<DirectionalLight, boost::noncopyable>("dir_light", py::init())
-        .add_property("ambient", RefGetter(&DirectionalLight::GetAmbientColor), RefGetter(&DirectionalLight::UseAmbientColor))
-        .add_property("diffuse", RefGetter(&DirectionalLight::GetDiffuseColor), RefGetter(&DirectionalLight::UseDiffuseColor))
-        .add_property("specular", RefGetter(&DirectionalLight::GetSpecularColor), RefGetter(&DirectionalLight::UseSpecularColor))
+        .def_readwrite("ambient", &DirectionalLight::AmbientColor)
+        .def_readwrite("diffuse", &DirectionalLight::DiffuseColor)
+        .def_readwrite("specular", &DirectionalLight::SpecularColor)
         .def_readwrite("direction", &DirectionalLight::Direction)
         .def_readwrite("projection_size", &DirectionalLight::ProjectionSize)
         ;
 
     py::class_<PointLight, boost::noncopyable>("point_light", py::init())
-        .add_property("ambient", RefGetter(&PointLight::GetAmbientColor), RefGetter(&PointLight::UseAmbientColor))
-        .add_property("diffuse", RefGetter(&PointLight::GetDiffuseColor), RefGetter(&PointLight::UseDiffuseColor))
-        .add_property("specular", RefGetter(&PointLight::GetSpecularColor), RefGetter(&PointLight::UseSpecularColor))
+        .def_readwrite("ambient", &PointLight::AmbientColor)
+        .def_readwrite("diffuse", &PointLight::DiffuseColor)
+        .def_readwrite("specular", &PointLight::SpecularColor)
         .add_property("factors", RefGetter(&PointLight::GetFactors), RefGetter(&PointLight::UseFactors))
         .def_readwrite("position", &PointLight::Position)
         ;
 
     py::class_<SpotLight, boost::noncopyable>("spot_light", py::init())
-        .add_property("ambient", RefGetter(&SpotLight::GetAmbientColor), RefGetter(&SpotLight::UseAmbientColor))
-        .add_property("diffuse", RefGetter(&SpotLight::GetDiffuseColor), RefGetter(&SpotLight::UseDiffuseColor))
-        .add_property("specular", RefGetter(&SpotLight::GetSpecularColor), RefGetter(&SpotLight::UseSpecularColor))
         .add_property("outer_angle", &SpotLight::GetOuterAngle, RefGetter(&SpotLight::UseOuterAngle))
         .add_property("inner_angle", &SpotLight::GetInnerAngle, RefGetter(&SpotLight::UseInnerAngle))
+        .def_readwrite("ambient", &SpotLight::AmbientColor)
+        .def_readwrite("diffuse", &SpotLight::DiffuseColor)
+        .def_readwrite("specular", &SpotLight::SpecularColor)
         .def_readwrite("direction", &SpotLight::Direction)
         .def_readwrite("position", &SpotLight::Position)
         ;
@@ -1411,25 +1458,28 @@ BOOST_PYTHON_MODULE(mx_engine)
         .add_property("length", &AABB::Length)
         ;
 
-    using SubMeshesGetFunc = std::vector<RenderObject>& (Mesh::*)();
+    using SubMeshesGetFunc = std::vector<SubMesh>& (Mesh::*)();
     py::class_<Mesh, boost::noncopyable>("mesh", py::no_init)
         .add_property("AABB", RefGetter(&Mesh::GetAABB))
         .add_property("submeshes", RefGetter((SubMeshesGetFunc)&Mesh::GetRenderObjects))
         .add_property("lod", &Mesh::GetLOD, &Mesh::SetLOD)
         ;
 
-    using SubMeshesGetMeshFunc = RenderObject& (std::vector<RenderObject>::*)(size_t);
-    py::class_<std::vector<RenderObject>, boost::noncopyable>("submesh_list", py::no_init)
-        .def("__getitem__", RefGetter(StdVectorGetRefWrapper<RenderObject>))
-        .def("__len__", &std::vector<RenderObject>::size)
+    using SubMeshesGetMeshFunc = SubMesh& (std::vector<SubMesh>::*)(size_t);
+    py::class_<std::vector<SubMesh>, boost::noncopyable>("submesh_list", py::no_init)
+        .def("__getitem__", RefGetter(StdVectorGetRefWrapper<SubMesh>))
+        .def("__len__", &std::vector<SubMesh>::size)
         ;
 
-    using GetMaterialFunc = Material& (RenderObject::*)();
-    py::class_<RenderObject, boost::noncopyable>("submesh", py::no_init)
-        .add_property("material", RefGetter((GetMaterialFunc)&RenderObject::GetMaterial))
-        .add_property("name", RefGetter(&RenderObject::GetName))
-        .add_property("has_texture", &RenderObject::UsesTexture)
-        .add_property("has_normals", &RenderObject::UsesNormals)
+    using GetMaterialFunc = Material& (SubMesh::*)();
+    using GetTransformFunc = Transform& (SubMesh::*)();
+    py::class_<SubMesh, boost::noncopyable>("submesh", py::no_init)
+        .add_property("material", RefGetter((GetMaterialFunc)&SubMesh::GetMaterial))
+        .add_property("transform", RefGetter((GetTransformFunc)&SubMesh::GetTransform))
+        .add_property("color", RefGetter(&SubMesh::GetRenderColor), &SubMesh::SetRenderColor)
+        .add_property("name", RefGetter(&SubMesh::GetName))
+        .add_property("has_texture", &SubMesh::UsesTexture)
+        .add_property("has_normals", &SubMesh::UsesNormals)
         ;
 
     py::class_<Material, boost::noncopyable>("material", py::no_init)
@@ -1446,6 +1496,7 @@ BOOST_PYTHON_MODULE(mx_engine)
         .def_readwrite("f_Ka", &Material::f_Ka)
         .def_readwrite("f_Kd", &Material::f_Kd)
         .def_readwrite("refl", &Material::reflection)
+        .def_readwrite("disp", &Material::displacement)
         ;
 
     using CameraFunc = ICamera & (CameraController::*)();
@@ -1535,6 +1586,7 @@ BOOST_PYTHON_MODULE(mx_engine)
         .def("make_instanced", MakeInstancedWrapper)
         .def("set_autobuffering", &MxObject::SetAutoBuffering)
         .def("buffer_instances", &MxObject::BufferInstances)
+        .def_readwrite("use_lod", &MxObject::UseLOD)
         .def_readwrite("transform", &MxObject::ObjectTransform)
         .def_readwrite("texture", &MxObject::ObjectTexture)
         .def_readwrite("shader", &MxObject::ObjectShader)
@@ -1542,7 +1594,7 @@ BOOST_PYTHON_MODULE(mx_engine)
         .def_readwrite("rotate_speed", &MxObject::RotateSpeed)
         .def_readwrite("scale_speed", &MxObject::ScaleSpeed)
         .add_property("buffer_count", &MxObject::GetBufferCount)
-        .add_property("AABB", &MxObject::GetAABB)
+        .add_property("AABB", RefGetter(&MxObject::GetAABB))
         .add_property("mesh", RefGetter((MeshFunc)&MxObject::GetMesh), &MxObject::SetMesh)
         .add_property("instances", RefGetter((InstanceListFunc)&MxObject::GetInstances))
         .add_property("render_color", RefGetter(&MxObject::GetRenderColor), &MxObject::SetRenderColor)

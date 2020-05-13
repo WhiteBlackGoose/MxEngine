@@ -47,14 +47,13 @@ namespace MxEngine
 		std::string map_Ks;
 		std::string map_Ke;
 		std::string map_d;
-		std::string map_bump;
+		std::string map_height;
 		std::string bump;
 
 		float Ns = 0.0f;
 		float Ni = 0.0f;
 		float d = 0.0f;
-		float Tr = 0.0f;
-		float bm = 0.0f;
+		float displacement = 0.0f;
 		Vector3 Tf{ 0.0f };
 		Vector3 Ka{ 0.0f };
 		Vector3 Kd{ 0.0f };
@@ -72,7 +71,7 @@ namespace MxEngine
 		MaterialInfo* material = nullptr;
 		bool useTexture = false;
 		bool useNormal = false;
-		constexpr static size_t VertexSize = (3 + 2 + 3);
+		constexpr static size_t VertexSize = (3 + 2 + 3 + 3 + 3);
 
 		size_t GetVertexCount() const { return this->buffer.size() / VertexSize; }
 	};

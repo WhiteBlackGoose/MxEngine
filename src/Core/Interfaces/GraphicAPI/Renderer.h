@@ -71,6 +71,7 @@ namespace MxEngine
 		virtual void Flush() const = 0;
 		virtual void Finish() const = 0;
 		virtual void SetViewport(int x, int y, int width, int height) const = 0;
+		virtual Renderer& UseColorMask(bool r, bool g, bool b, bool a) = 0;
 		virtual Renderer& UseSampling(bool value = true) = 0;
 		virtual Renderer& UseDepthBuffer(bool value = true) = 0;
 		virtual Renderer& UseReversedDepth(bool value = true) = 0;
@@ -78,6 +79,7 @@ namespace MxEngine
 		virtual Renderer& UseClearColor(float r, float g, float b, float a = 0.0f) = 0;
 		virtual Renderer& UseBlending(BlendFactor src, BlendFactor dist) = 0;
 		virtual Renderer& UseAnisotropicFiltering(float factor) = 0;
+		virtual Renderer& UseLineWidth(size_t width) = 0;
 		virtual float GetLargestAnisotropicFactor() const = 0;
 	};
 }

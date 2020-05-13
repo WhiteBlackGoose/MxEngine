@@ -28,19 +28,20 @@
 
 #pragma once
 
-#include "Core/Lighting/LightSource.h"
 #include "Core/Interfaces/GraphicAPI/Texture.h"
+#include "Utilities/Memory/Memory.h"
+#include "Utilities/Math/Math.h"
 
 namespace MxEngine
 {
-    class DirectionalLight final : public LightSource<DirectionalLight>
+    class DirectionalLight
     {
         UniqueRef<Texture> texture;
-        Vector3 ambientColor  = MakeVector3(1.0f);
-        Vector3 diffuseColor  = MakeVector3(1.0f);
-        Vector3 specularColor = MakeVector3(1.0f);
     public:
-        Vector3 Direction = MakeVector3(0.0f, 1.0f, 0.0f);
+        Vector3 AmbientColor  = MakeVector3(1.0f);
+        Vector3 DiffuseColor  = MakeVector3(1.0f);
+        Vector3 SpecularColor = MakeVector3(1.0f);
+        Vector3 Direction     = MakeVector3(0.0f, 1.0f, 0.0f);
         float ProjectionSize = 50.0f;
         Vector3 ProjectionCenter = MakeVector3(0.0f);
 
@@ -48,13 +49,5 @@ namespace MxEngine
         Texture* GetDepthTexture();
         void AttachDepthTexture(UniqueRef<Texture> texture);
         Matrix4x4 GetMatrix() const;
-
-        // Inherited via LightSource
-        DirectionalLight& UseAmbientColor(const Vector3& ambient);
-        DirectionalLight& UseDiffuseColor(const Vector3& diffuse);
-        DirectionalLight& UseSpecularColor(const Vector3& specular);
-        const Vector3& GetAmbientColor() const;
-        const Vector3& GetDiffuseColor() const;
-        const Vector3& GetSpecularColor() const;
     };
 }

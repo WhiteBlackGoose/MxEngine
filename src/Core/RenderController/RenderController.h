@@ -37,6 +37,8 @@
 #include "Core/Lighting/PointLight/PointLight.h"
 #include "Core/Lighting/SpotLight/SpotLight.h"
 #include "Core/Skybox/Skybox.h"
+#include "Core/DebugDraw/Rectangle.h"
+#include "Core/DebugDraw/DebugBuffer.h"
 
 #include <array>
 
@@ -58,15 +60,37 @@ namespace MxEngine
 		size_t directionalDepthSize = 4096;
 		size_t spotDepthSize = 512;
 		size_t pointDepthSize = 512;
+		int bloomIterations = 0;
+		int samples = 1;
+		float exposure = 1.0f;
+		float bloomWeight = 100.0f;
+
+		VectorInt2 viewportSize{ 0, 0 };
+		UniqueRef<FrameBuffer> MSAABuffer;		
+		UniqueRef<FrameBuffer> HDRBuffer;
+		UniqueRef<FrameBuffer> BloomBuffers[2];
+		UniqueRef<RenderBuffer> MSAARenderBuffer;
+		std::array<UniqueRef<FrameBuffer>, 4> upscaleBuffers;
+		UniqueRef<Texture> hdrTexture;
+		UniqueRef<Texture> bloomTexture;
+		UniqueRef<DebugBuffer> debugBuffer;
+		UniqueRef<Rectangle> rectangle;
+
+		static constexpr TextureFormat HDRTextureFormat = TextureFormat::RGBA16F;
 	public:
 		RenderController(Renderer& renderer);
 
 		int PCFdistance = 1;
 		Shader* ObjectShader = nullptr;
-		Shader* MeshShader = nullptr;
 		Shader* DepthTextureShader = nullptr;
 		Shader* DepthCubeMapShader = nullptr;
+		Shader* MSAAShader = nullptr;
+		Shader* HDRShader = nullptr;
+		Shader* BloomShader = nullptr;
+		Shader* UpscaleShader = nullptr;
 		Texture* DefaultTexture = nullptr;
+		Texture* DefaultHeight = nullptr;
+		Texture* DefaultNormal = nullptr;
 		FrameBuffer* DepthBuffer = nullptr;
 
 		Renderer& GetRenderEngine() const;
@@ -74,16 +98,26 @@ namespace MxEngine
 		void Clear() const;
 		void AttachDepthTexture(const Texture& texture);
 		void AttachDepthCubeMap(const CubeMap& cubemap);
-		void DetachDepthBuffer(int viewportWidth, int viewportHeight);
+		void DetachDepthBuffer();
+		void ToggleDepthOnlyMode(bool value) const;
 		void ToggleReversedDepth(bool value) const;
 		void ToggleFaceCulling(bool value, bool counterClockWise = true, bool cullBack = true) const;
 		void SetAnisotropicFiltering(float value) const;
-		void SetViewport(int x, int y, int width, int height) const;
+		void SetViewport(int x, int y, int width, int height);
 		void DrawObject(const IDrawable& object, const CameraController& viewport) const;
 		void DrawObject(const IDrawable& object, const CameraController& viewport, const LightSystem& lights, const Skybox* skybox) const;
-		void DrawObjectMesh(const IDrawable& object, const CameraController& viewport) const;
 		void DrawSkybox(const Skybox& skybox, const CameraController& viewport);
+		void DrawHDRTexture(const Texture& texture, int MSAAsamples);
+		void DrawPostProcessImage(const Texture& hdrTexture, const Texture& bloomTexture, float hdrExposure, int bloomIters, float bloomWeight);
+		const Texture& UpscaleTexture(const Texture& texture, const VectorInt2& dist);
 		void SetPCFDistance(int value);
+		int GetPCFDIstance() const;
+		void SetHDRExposure(float value);
+		float GetHDRExposure() const;
+		void SetBloomIterations(int iterations);
+		int GetBloomIterations() const;
+		void SetBloomWeight(float weight);
+		float GetBloomWeight();
 		template<typename LightSource>
 		void DrawDepthTexture(const IDrawable& object, const LightSource& light) const;
 		template<typename PositionedLightSource>
@@ -92,6 +126,13 @@ namespace MxEngine
 		size_t GetDepthBufferSize() const;
 		template<typename LightSource>
 		void SetDepthBufferSize(size_t size);
+		void SetMSAASampling(size_t samples, int viewportWidth, int viewportHeight);
+		int getMSAASamples() const;
+		void AttachDrawBuffer();
+		void DetachDrawBuffer();
+		DebugBuffer& GetDebugBuffer();
+		Rectangle& GetRectangle();
+		void DrawDebugBuffer(const CameraController& viewport, bool overlay = false) const;
 	};
 
 	template<typename LightSource>
@@ -102,13 +143,13 @@ namespace MxEngine
 		this->DepthTextureShader->SetUniformMat4("LightProjMatrix", light.GetMatrix());
 		size_t iterator = object.GetIterator();
 
-		this->GetRenderEngine().SetDefaultVertexAttribute(3, object.GetModelMatrix());
-		this->GetRenderEngine().SetDefaultVertexAttribute(7, object.GetNormalMatrix());
-		this->GetRenderEngine().SetDefaultVertexAttribute(10, object.GetRenderColor());
+		auto& ModelMatrix = object.GetTransform().GetMatrix();
 
 		while (!object.IsLast(iterator))
 		{
 			const auto& renderObject = object.GetCurrent(iterator);
+
+			this->GetRenderEngine().SetDefaultVertexAttribute(5, ModelMatrix * renderObject.GetTransform().GetMatrix());
 
 			if (object.GetInstanceCount() == 0)
 			{
@@ -138,14 +179,15 @@ namespace MxEngine
 		this->DepthCubeMapShader->SetUniformVec3("lightPos", light.Position);
 
 		size_t iterator = object.GetIterator();
-
-		this->GetRenderEngine().SetDefaultVertexAttribute(3, object.GetModelMatrix());
-		this->GetRenderEngine().SetDefaultVertexAttribute(7, object.GetNormalMatrix());
-		this->GetRenderEngine().SetDefaultVertexAttribute(10, object.GetRenderColor());
+		
+		auto& ModelMatrix  = object.GetTransform().GetMatrix();
 
 		while (!object.IsLast(iterator))
 		{
 			const auto& renderObject = object.GetCurrent(iterator);
+
+			this->GetRenderEngine().SetDefaultVertexAttribute(5, ModelMatrix * renderObject.GetTransform().GetMatrix());
+
 			if (object.GetInstanceCount() == 0)
 			{
 				this->GetRenderEngine().DrawTriangles(renderObject.GetVAO(), renderObject.GetIBO(), *this->DepthCubeMapShader);

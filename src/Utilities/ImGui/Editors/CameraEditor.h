@@ -34,21 +34,47 @@
 
 namespace MxEngine::GUI
 {
+	inline void DrawDebugMeshes()
+	{
+		auto context = Application::Get();
+
+		static bool boundingBoxes = false;
+		static bool boundingSpheres = false;
+		static bool debugOverlay = false;
+		static Vector4 debugColor = MakeVector4(1.0f, 0.0f, 0.0f, 1.0f);
+
+		ImGui::Checkbox("display AABB", &boundingBoxes);
+		ImGui::SameLine();  ImGui::Checkbox("display spheres", &boundingSpheres);
+		ImGui::SameLine(); ImGui::Checkbox("overlay debug meshes", &debugOverlay);
+		ImGui::ColorEdit4("debug mesh color", &debugColor[0]);
+
+		context->ToggleDebugDraw(boundingBoxes, boundingSpheres, debugColor, debugOverlay);
+	}
+
 	inline void DrawCameraEditor()
 	{
 		auto context = Application::Get();
-		static bool mesh = false;
+		auto& scene = context->GetCurrentScene();
 
-		auto& camera = context->GetCurrentScene().Viewport;
+		auto& camera = scene.Viewport;
 		float speed = camera.GetMoveSpeed();
 		float sensitivity = camera.GetRotateSpeed();
 		float zoom = camera.GetZoom();
 		Vector3 pos = camera.GetPosition();
+		float exposure = context->GetRenderer().GetHDRExposure();
+		float bloomWeight = context->GetRenderer().GetBloomWeight();
+		int bloomIters = context->GetRenderer().GetBloomIterations();
 
-		ImGui::Checkbox("display mesh", &mesh);
+		DrawDebugMeshes();
+
+		if (ImGui::DragFloat("HDR exposure", &exposure, 0.01f, 0.0f, std::numeric_limits<float>::max()))
+			context->GetRenderer().SetHDRExposure(exposure);
+		if (ImGui::DragFloat("bloom weight", &bloomWeight, 0.01f, 0.0f, std::numeric_limits<float>::max()))
+			context->GetRenderer().SetBloomWeight(bloomWeight);
+		if (ImGui::DragInt("bloom iterations", &bloomIters, 0.1f, 0, 100))
+			context->GetRenderer().SetBloomIterations(bloomIters);
+
 		ImGui::Text("position: (%f, %f, %f)", pos.x, pos.y, pos.z);
-
-		context->ToggleMeshDrawing(mesh);
 
 		if (ImGui::InputFloat("speed", &speed))
 			camera.SetMoveSpeed(speed);

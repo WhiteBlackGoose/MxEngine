@@ -36,74 +36,9 @@ namespace MxEngine
     class Sphere : public AbstractPrimitive
     {
     public:
-        inline Sphere(size_t polygons = 30)
-        {
-            this->Resize(polygons);
-        }
-
-        inline void Resize(size_t polygons)
-        {
-            auto resourceName = Format(FMT_STRING("Sphere_{0}"), Application::Get()->GenerateResourceId());
-            auto data = Sphere::GetSphereData(polygons);
-            this->SubmitData(resourceName, data.first, data.second);
-        }
+        Sphere(size_t polygons = 30);
+        void Resize(size_t polygons);
     private:
-        inline static std::pair<ArrayView<float>, ArrayView<unsigned int>> GetSphereData(size_t polygons)
-        {
-            // data must be static as its view is returned
-            static std::vector<float> verteces;
-            static std::vector<unsigned int> indicies;
-
-            verteces.clear();
-            indicies.clear();
-            verteces.reserve(polygons * polygons * AbstractPrimitive::VertexSize);
-            indicies.reserve(polygons * polygons * 6); // two triangles
-            // generate raw data for verteces (must be rearranged after)
-            for (size_t m = 0; m <= polygons; m++)
-            {
-                for (size_t n = 0; n <= polygons; n++)
-                {
-                    float x = std::sin(Pi<float>() * m / polygons) * std::cos(2 * Pi<float>() * n / polygons);
-                    float y = std::sin(Pi<float>() * m / polygons) * std::sin(2 * Pi<float>() * n / polygons);
-                    float z = std::cos(Pi<float>() * m / polygons);
-                    // position
-                    verteces.push_back(x);
-                    verteces.push_back(y);
-                    verteces.push_back(z);
-                    // texture
-                    verteces.push_back(static_cast<float>(m / polygons));
-                    verteces.push_back(static_cast<float>(n / polygons));
-                    // normal
-                    verteces.push_back(x);
-                    verteces.push_back(y);
-                    verteces.push_back(z);
-                }
-            }
-
-            // create indicies
-            for (size_t i = 0; i < polygons; i++)
-            {
-                size_t idx1 = i * (polygons + 1);
-                size_t idx2 = idx1 + polygons + 1;
-
-                for (size_t j = 0; j < polygons; j++, idx1++, idx2++)
-                {
-                    if (i != 0)
-                    {
-                        indicies.push_back((unsigned int)idx1);
-                        indicies.push_back((unsigned int)idx2);
-                        indicies.push_back((unsigned int)idx1 + 1);
-                    }
-                    if (i + 1 != polygons)
-                    {
-                        indicies.push_back((unsigned int)idx1 + 1);
-                        indicies.push_back((unsigned int)idx2);
-                        indicies.push_back((unsigned int)idx2 + 1);
-                    }
-                }
-            }
-
-            return { verteces, indicies };
-        }
+        static std::pair<std::vector<float>, std::vector<unsigned int>> GetSphereData(size_t polygons);
     };
 }

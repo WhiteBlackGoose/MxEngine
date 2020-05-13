@@ -34,7 +34,7 @@
 
 namespace MxEngine
 {
-	static Instancing<MxObject>::InstanceList DefaultInstancing { MxInstance() };
+	static Instancing<MxObject>::InstanceList DefaultInstancing{ };
 
 	void MxObject::AddInstancedBuffer(ArrayBufferType buffer, size_t count, size_t components, size_t perComponentFloats, UsageType type)
 	{
@@ -184,17 +184,22 @@ namespace MxEngine
 		auto& models  = this->instances->GetModelData();
 		auto& normals = this->instances->GetNormalData();
 		auto& colors  = this->instances->GetColorData();
-		this->BufferDataByIndex(index, reinterpret_cast<float*>(models.data()), count * modelMatrixSize);
-		this->BufferDataByIndex(index + 1, reinterpret_cast<float*>(normals.data()), count * normalMatrixSize);
-		this->BufferDataByIndex(index + 2, reinterpret_cast<float*>(colors.data()), count * colorVectorSize);
+		{
+			MAKE_SCOPE_PROFILER("MxObject::BufferInstancesToGPU");
+			this->BufferDataByIndex(index, reinterpret_cast<float*>(models.data()), count * modelMatrixSize);
+			this->BufferDataByIndex(index + 1, reinterpret_cast<float*>(normals.data()), count * normalMatrixSize);
+			this->BufferDataByIndex(index + 2, reinterpret_cast<float*>(colors.data()), count * colorVectorSize);
+		}
     }
 
-    AABB MxObject::GetAABB() const
+    const AABB& MxObject::GetAABB() const
     {
-		if (this->ObjectMesh == nullptr)
-			return AABB{ };
-		return (this->ObjectMesh->GetAABB() + this->ObjectTransform.GetTranslation()) * this->ObjectTransform.GetScale();
-    }
+		if (this->ObjectMesh != nullptr)
+			this->boundingBox = this->ObjectMesh->GetAABB() * this->ObjectTransform.GetMatrix();
+		else
+			this->boundingBox = AABB{ };
+		return this->boundingBox;
+	}
 
 	MxObject::MxObject(Mesh* mesh)
 	{
@@ -340,15 +345,10 @@ namespace MxEngine
 		return this->GetMesh()->GetRenderObjects()[iterator];
 	}
 
-	const Matrix4x4& MxObject::GetModelMatrix() const
-	{
-		return this->ObjectTransform.GetMatrix();
-	}
-
-	const Matrix3x3& MxObject::GetNormalMatrix() const
-	{
-		return this->ObjectTransform.GetNormalMatrix();
-	}
+    const Transform& MxObject::GetTransform() const
+    {
+		return this->ObjectTransform;
+    }
 
 	bool MxObject::HasShader() const
 	{
