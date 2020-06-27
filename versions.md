@@ -104,3 +104,24 @@
 - HDR rendering support
 - customizable bloom effect
 - some new MxEngine library utilities
+### 7.0.0
+- Entity Component System added - almost like in Unity (for more info see separate repository https://github.com/MomoDeve/MxEngineECS )
+- Resource handlers and factories - no more leaked pointers!
+- json format support and engine config file (will be updated with new releases)
+- fog rendering, transparency and proper instanced rendering
+- better Colors and Primitives API, AssetManager, RenderManager, FileManager and EventManager classes
+- new runtime editor based on ImGui docking - now windows can be moved, merged, splitted and resized, including viewport
+- now engine support multiple camera rendering, custom behaviour component, and custom MeshLOD generation
+- EASTL library finally integrated, you can use it with aliases like MxVector<T>, MxString, MxHashMap<T>
+- due to massive API refactoring python scripting was removed, but do not worry! it will be returned in next releases
+### 7.0.1
+- fixed some bugs with camera and window resize
+- now displacement should work with shadows and without global light shader
+- now methods with paths have const char\* overload to avoid collisions with other methods
+### 7.0.2
+- Render Editor window now has window settings (size, position, title)
+- InputManager and WindowManager classes with better API
+### 7.0.3
+- textures now can be saved as image files (PNG, JPG, TGA, BMP, HDR are supported)
+- main viewport and camera render textures can be resized to extend even belong window limit
+- added offline rendering project to examples (show basics of viewport image capture and resize)

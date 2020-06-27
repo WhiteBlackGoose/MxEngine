@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -30,9 +30,10 @@
 #include "Utilities/Logger/Logger.h"
 #include "Utilities/Profiler/Profiler.h"
 #include "Core/Macro/Macro.h"
-#include "Utilities/FileSystem/FileSystem.h"
+#include "Utilities/FileSystem/File.h"
 #include "Utilities/Format/Format.h"
 #include "Utilities/Random/Random.h"
+#include "Utilities/Json/Json.h"
 
 #include <algorithm>
 
@@ -43,15 +44,23 @@
 
 namespace MxEngine
 {
-	ObjectInfo ObjectLoader::Load(std::string filename)
+	ObjectInfo ObjectLoader::Load(const MxString& filename)
 	{
-		auto directory = FilePath(filename).parent_path();
+		auto filepath = FilePath(filename.c_str());
+		auto directory = filepath.parent_path();
 		ObjectInfo object;
+
+		if (!File::Exists(filepath) || !File::IsFile(filepath))
+		{
+			MxEngine::Logger::Instance().Error("Assimp::Importer", "file does not exist: " + filename);
+			return object;
+		}
+
 		MAKE_SCOPE_PROFILER("ObjectLoader::LoadObject");
 		MAKE_SCOPE_TIMER("MxEngine::ObjectLoader", "ObjectLoader::LoadObject");
-		Logger::Instance().Debug("Assimp::Importer", "loading object from file: " + filename);
-		static Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices 
+		Logger::Instance().Debug("Assimp::Importer", MxFormat("loading object from file: {}", filename));
+		static Assimp::Importer importer; // not thread safe
+		const aiScene* scene = importer.ReadFile(filename.c_str(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices 
 			| aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes | aiProcess_ImproveCacheLocality | aiProcess_GenUVCoords | aiProcess_CalcTangentSpace);
 		if (scene == nullptr)
 		{
@@ -67,7 +76,7 @@ namespace MxEngine
 			auto& materialInfo = object.materials[i];
 			auto& material = scene->mMaterials[i];
 
-			materialInfo.name = material->GetName().C_Str();
+			materialInfo.Name = material->GetName().C_Str();
 			
 			#define GET_FLOAT(type, field)\
 			{ ai_real val;\
@@ -76,8 +85,11 @@ namespace MxEngine
 					materialInfo.field = (float)val;\
 				}\
 			}
-			GET_FLOAT(OPACITY, d);
-			GET_FLOAT(SHININESS, Ns);
+			GET_FLOAT(OPACITY, Transparency);
+			GET_FLOAT(SHININESS, SpecularExponent);
+
+			// TODO: this is workaround, because some object formats export alpha channel as 0, but its actually means 1
+			if (materialInfo.Transparency == 0.0f) materialInfo.Transparency = 1.0f;
 
 			#define GET_COLOR(type, field)\
 			{ aiColor3D color;\
@@ -88,10 +100,10 @@ namespace MxEngine
 					materialInfo.field.z = color.b;\
 				}\
 			}
-			GET_COLOR(AMBIENT,     Ka);
-			GET_COLOR(DIFFUSE,     Kd);
-			GET_COLOR(SPECULAR,    Ks);
-			GET_COLOR(EMISSIVE,    Ke);
+			GET_COLOR(AMBIENT,  AmbientColor);
+			GET_COLOR(DIFFUSE,  DiffuseColor);
+			GET_COLOR(SPECULAR, SpecularColor);
+			GET_COLOR(EMISSIVE, EmmisiveColor);
 
 			#define GET_TEXTURE(type, field)\
 			if (material->GetTextureCount(type) > 0)\
@@ -99,13 +111,13 @@ namespace MxEngine
 				aiString path;\
 				if (material->GetTexture(type, 0, &path) == aiReturn_SUCCESS)\
 				{\
-					materialInfo.field = (directory / path.C_Str()).string(); \
+					materialInfo.field = MxString((directory / path.C_Str()).string().c_str());\
 				}\
 			}
-			GET_TEXTURE(aiTextureType_AMBIENT, map_Ka);
-			GET_TEXTURE(aiTextureType_DIFFUSE, map_Kd);
-			GET_TEXTURE(aiTextureType_SPECULAR, map_Ks);
-			GET_TEXTURE(aiTextureType_EMISSIVE, map_Ke);
+			GET_TEXTURE(aiTextureType_AMBIENT, AmbientMap);
+			GET_TEXTURE(aiTextureType_DIFFUSE, DiffuseMap);
+			GET_TEXTURE(aiTextureType_SPECULAR, SpecularMap);
+			GET_TEXTURE(aiTextureType_EMISSIVE, EmmisiveMap);
 		}
 
 		Vector3 minCoords = MakeVector3(std::numeric_limits<float>::max());
@@ -119,7 +131,6 @@ namespace MxEngine
 			maxCoords = VectorMax(maxCoords, coords.second);
 		}
 		auto objectCenter = (minCoords + maxCoords) * 0.5f;
-		object.boundingBox = AABB{ minCoords - objectCenter, maxCoords - objectCenter };
 
 		for (size_t i = 0; i < object.meshes.size(); i++)
 		{
@@ -131,64 +142,122 @@ namespace MxEngine
 			meshInfo.material = object.materials.data() + mesh->mMaterialIndex;
 
 			MX_ASSERT(mesh->mNormals != nullptr);
-			MX_ASSERT(mesh->mTextureCoords != nullptr);
 			MX_ASSERT(mesh->mVertices != nullptr);
 			MX_ASSERT(mesh->mNumFaces > 0);
 			constexpr size_t VertexSize = (3 + 2 + 3 + 3 + 3);
 
-			std::vector<float> vertex;
-			vertex.reserve(VertexSize * (size_t)mesh->mNumVertices);
+			MxVector<Vertex> vertex;
+			vertex.resize((size_t)mesh->mNumVertices);
 			for (size_t i = 0; i < (size_t)mesh->mNumVertices; i++)
 			{
-				((Vector3*)mesh->mVertices)[i] -= objectCenter;
-				vertex.push_back(mesh->mVertices[i].x);
-				vertex.push_back(mesh->mVertices[i].y);
-				vertex.push_back(mesh->mVertices[i].z);
+				vertex[i].Position = ((Vector3*)mesh->mVertices)[i];
+				vertex[i].Position -= objectCenter;
+				vertex[i].Normal    = ((Vector3*)mesh->mNormals)[i];
+
 				if (meshInfo.useTexture)
 				{
-					vertex.push_back(mesh->mTextureCoords[0][i].x);
-					vertex.push_back(mesh->mTextureCoords[0][i].y);
+					vertex[i].TexCoord = MakeVector2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
+					vertex[i].Tangent = ((Vector3*)mesh->mTangents)[i];
+					vertex[i].Bitangent = ((Vector3*)mesh->mBitangents)[i];
 				}
-				else
-				{
-					vertex.push_back(0.0f);
-					vertex.push_back(0.0f);
-				}
-
-				vertex.push_back(mesh->mNormals[i].x);
-				vertex.push_back(mesh->mNormals[i].y);
-				vertex.push_back(mesh->mNormals[i].z);
-
-				vertex.push_back(mesh->mTangents[i].x);
-				vertex.push_back(mesh->mTangents[i].y);
-				vertex.push_back(mesh->mTangents[i].z);
-
-				vertex.push_back(mesh->mBitangents[i].x);
-				vertex.push_back(mesh->mBitangents[i].y);
-				vertex.push_back(mesh->mBitangents[i].z);
 			}
 
-			meshInfo.faces.resize((size_t)mesh->mNumFaces * 3);
+			meshInfo.indicies.resize((size_t)mesh->mNumFaces * 3);
 			for (size_t i = 0; i < (size_t)mesh->mNumFaces; i++)
 			{
 				MX_ASSERT(mesh->mFaces[i].mNumIndices == 3);
-				meshInfo.faces[3 * i + 0] = mesh->mFaces[i].mIndices[0];
-				meshInfo.faces[3 * i + 1] = mesh->mFaces[i].mIndices[1];
-				meshInfo.faces[3 * i + 2] = mesh->mFaces[i].mIndices[2];
+				meshInfo.indicies[3 * i + 0] = mesh->mFaces[i].mIndices[0];
+				meshInfo.indicies[3 * i + 1] = mesh->mFaces[i].mIndices[1];
+				meshInfo.indicies[3 * i + 2] = mesh->mFaces[i].mIndices[2];
 			}
-			if (meshInfo.name.empty()) 
-				meshInfo.name = Format(FMT_STRING("unnamed_hash_{0}"), Random::Get(0LL, Random::Max));
+			if (meshInfo.name.empty())
+				meshInfo.name = UUIDGenerator::Get();
 			meshInfo.useTexture = true;
-			meshInfo.buffer = std::move(vertex);
+			meshInfo.vertecies = std::move(vertex);
 		}
+		importer.FreeScene();
+
 		return object;
+	}
+
+    MaterialLibrary ObjectLoader::LoadMaterials(const MxString& path)
+    {
+		MaterialLibrary materials;
+
+		File file(path);
+		if (!file.IsOpen())
+		{
+			Logger::Instance().Error("MxEngine::ObjectLoader", "cannot open file: " + path);
+			return materials;
+		}
+		Logger::Instance().Debug("MxEngine::ObjectLoader", "loading materials from file: " + path);
+
+		auto materialList = Json::LoadJson(file);
+
+		size_t materialCount = materialList.size();
+		materials.resize(materialCount);
+		for(size_t i = 0; i < materialCount; i++)
+		{
+			auto& json = materialList[i];
+			auto& material = materials[i];
+
+			material.Transparency     = json["Transparency"].get<float>();
+			material.Displacement     = json["Displacement"].get<float>();
+			material.SpecularExponent = json["SpecularExponent"].get<float>();
+
+			material.AmbientColor  = json["AmbientColor" ].get<Vector3>();
+			material.DiffuseColor  = json["DiffuseColor" ].get<Vector3>();
+			material.SpecularColor = json["SpecularColor"].get<Vector3>();
+			material.EmmisiveColor = json["EmmisiveColor"].get<Vector3>();
+
+			material.AmbientMap       = json["AmbientMap"     ].get<MxString>();
+			material.DiffuseMap       = json["DiffuseMap"     ].get<MxString>();
+			material.SpecularMap      = json["SpecularMap"    ].get<MxString>();
+			material.EmmisiveMap      = json["EmmisiveMap"    ].get<MxString>();
+			material.HeightMap        = json["HeightMap"      ].get<MxString>();
+			material.NormalMap        = json["NormalMap"      ].get<MxString>();
+			material.Name             = json["Name"           ].get<MxString>();
+		}
+
+		return materials;
+    }
+
+	void ObjectLoader::DumpMaterials(const MaterialLibrary& materials, const MxString& path)
+	{
+		JsonFile json;
+		File file(path, File::WRITE);
+		Logger::Instance().Debug("MxEngine::ObjectLoader", "dumping materials to file: " + path);
+
+		#define DUMP(index, name) json[index][#name] = materials[index].name
+
+		for (size_t i = 0; i < materials.size(); i++)
+		{
+			DUMP(i, Transparency);
+			DUMP(i, Displacement);
+			DUMP(i, SpecularExponent);
+
+			DUMP(i, AmbientColor);
+			DUMP(i, DiffuseColor);
+			DUMP(i, SpecularColor);
+			DUMP(i, EmmisiveColor);
+
+			DUMP(i, AmbientMap);
+			DUMP(i, DiffuseMap);
+			DUMP(i, SpecularMap);
+			DUMP(i, EmmisiveMap);
+			DUMP(i, HeightMap);
+			DUMP(i, NormalMap);
+			DUMP(i, Name);
+		}
+
+		Json::SaveJson(file, json);
 	}
 }
 #else
 
 namespace MxEngine
 {
-	ObjectInfo ObjectLoader::Load(std::string path)
+	ObjectInfo ObjectLoader::Load(MxString path)
 	{
 		Logger::Instance().Error("MxEngine::ObjectLoader", "object cannot be loaded as Assimp library was turned off in engine settings");
 		ObjectInfo object;

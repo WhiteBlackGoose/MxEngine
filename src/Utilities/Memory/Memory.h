@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -44,21 +44,44 @@ namespace MxEngine
     template<typename T>
     using Ref = std::shared_ptr<T>;
 
+    /*!
+    wrapper around unique_ptr
+    \params args arguments for construction of T object
+    \returns unique_ptr<T>
+    */
     template<typename T, typename... Args>
     inline UniqueRef<T> MakeUnique(Args&&... args)
     {
         return std::make_unique<T>(std::forward<Args>(args)...);
     }
 
+    /*!
+    wrapper around shared_ptr
+    \params args arguments for construction of T object
+    \returns shared_ptr<T>
+    */
     template<typename T, typename... Args>
     inline Ref<T> MakeRef(Args&&... args)
     {
         return std::make_shared<T>(std::forward<Args>(args)...);
     }
 
+    /*!
+    wrapper around new operator
+    \params args arguments for construction of T object
+    \returns new object of type T
+    */
     template<typename T, typename... Args>
     inline T* Alloc(Args&&... args) { return new T(std::forward<Args>(args)...); }
 
+    /*!
+    wrapper around delete operator
+    \param value value to delete
+    */
     template<typename T>
     inline void Free(T* value) { delete value; }
 }
+
+void* operator new[](size_t size, const char* name, int flags, unsigned int debugFlags, const char* file, int line);
+
+void* operator new[](size_t size, size_t align, size_t offset, const char* name, int flags, unsigned int debugFlags, const char* file, int line);

@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -40,7 +40,7 @@
 
 namespace MxEngine
 {
-	void LoggerImpl::Error(const std::string& invoker, const std::string& message) const
+	void LoggerImpl::Error(const MxString& invoker, const MxString& message) const
 	{
 		if (error != nullptr && useError)
 		{
@@ -49,7 +49,7 @@ namespace MxEngine
 			::SetConsoleTextAttribute(handle, FOREGROUND_RED | FOREGROUND_INTENSITY);
 			#endif
 
-			* error << '[' << invoker << " error]: " << message << '\n';
+			* error << '[' << invoker.c_str() << " error]: " << message.c_str() << '\n';
 
 			#if defined(MXENGINE_WINDOWS)
 			::SetConsoleTextAttribute(handle, 7); // default
@@ -58,15 +58,15 @@ namespace MxEngine
 		}
 	}
 
-	void LoggerImpl::Debug(const std::string& invoker, const std::string& message) const
+	void LoggerImpl::Debug(const MxString& invoker, const MxString& message) const
 	{
 		if (debug != nullptr && useDebug)
 		{
-			*debug << '[' << invoker << " debug]: " << message << '\n';
+			*debug << '[' << invoker.c_str() << " debug]: " << message.c_str() << '\n';
 		}
 	}
 
-	void LoggerImpl::Warning(const std::string& invoker, const std::string& message) const
+	void LoggerImpl::Warning(const MxString& invoker, const MxString& message) const
 	{
 		#if defined(MXENGINE_WINDOWS)
 		auto handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
@@ -75,7 +75,7 @@ namespace MxEngine
 
 		if (warning != nullptr && useWarning)
 		{
-			*warning << '[' << invoker << " warning]: " << message << '\n';
+			*warning << '[' << invoker.c_str() << " warning]: " << message.c_str() << '\n';
 		}
 
 		#if defined(MXENGINE_WINDOWS)
@@ -104,7 +104,7 @@ namespace MxEngine
 					)
 				{
 					*error << "  at " << function;
-					*error << " in " << filename << ':' << st[i].source_line() - 1;
+					*error << " in " << filename << ':' << st[i].source_line();
 					*error << " | " << st[i].address() << '\n';
 				}
 			}

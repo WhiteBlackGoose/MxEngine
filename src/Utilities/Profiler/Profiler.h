@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -37,32 +37,90 @@
 
 namespace MxEngine
 {
+	/*!
+	profile session is a special singleton object which periodically writes log to a json file
+	it is used inside ScopeProfiler to write time measurements. After application exit log can be viewed at chrome://tracing page
+	*/
 	class ProfileSession
 	{
+		/*!
+		json file to which profile log is outputted
+		*/
 		std::ofstream stream;
-		size_t count = 0;
+		/*!
+		count of json log entries (is used internally to create json file)
+		*/
+		size_t entriesCount = 0;
 
+		/*!
+		writes header of json file, i.e "{ traceEvents: [ ..."
+		*/
 		void WriteJsonHeader();
+		/*!
+		writes footer of json file, i.e "] }"
+		*/
 		void WriteJsonFooter();
 	public:
+		/*!
+		checks if json file is opened
+		\returns true if json file can be written to, false either
+		*/
 		bool IsValid() const;
+		/*!
+		getter for entriesCount
+		\returns number of json entries
+		*/
 		size_t GetEntryCount() const;
-		void StartSession(const std::string& filename);
+		/*!
+		creates json file or clears it if it exists and writes json header to it
+		\param filename file to output json to
+		*/
+		void StartSession(const MxString& filename);
+		/*!
+		writes json entry, consisting of process id, start/end time, function name
+		\param function called function name 
+		\param begin start timepoint of function execution
+		\param delta duration of function execution
+		*/
 		void WriteJsonEntry(const char* function, TimeStep begin, TimeStep delta);
+		/*!
+		ends profile measurement, writing json footer and saving json file to disk
+		*/
 		void EndSession();
 	};
 
 	using Profiler = SingletonHolder<ProfileSession>;
 
+	/*!
+	scope profiler is a class which measures how much time take the function execution 
+	it saves timestep om its creation, and writes json entry to ProfileSession on its destruction
+	*/
 	class ScopeProfiler
 	{
+		/*!
+		construction time point and start of function execution
+		*/
 		TimeStep start;
+		/*!
+		function name which is measured
+		*/
 		const char* function;
+		/*!
+		reference to json profile logger
+		*/
 		ProfileSession& profiler;
 	public:
+		/*!
+		creates scope profiler and fixes timepoint as start of function call
+		\param profiler reference to json profile logger
+		\param function function name which is measured
+		*/
 		inline ScopeProfiler(ProfileSession& profiler, const char* function)
 			: start(Time::Current()), function(function), profiler(profiler) { }
 
+		/*!
+		destroyed scope profiler, forcing it to write json entry to profiler
+		*/
 		inline ~ScopeProfiler()
 		{
 			TimeStep end = Time::Current();
@@ -70,28 +128,49 @@ namespace MxEngine
 		}
 	};
 
+	/*!
+	scope timer is a class which logs how much time the function execution took
+	logging is done using Logger class via debug stream
+	*/
 	class ScopeTimer
 	{
+		/*!
+		time point when function execution started
+		*/
 		TimeStep start;
-		std::string function;
+		/*!
+		function name. Is string, because when calling Logger::Debug it is appended to "calling" string
+		*/
+		MxString function;
+		/*!
+		invoker of function. Can be class, object or namespace which called the function
+		*/
 		std::string_view invoker;
 	public:
+		/*!
+		creates scope timer, writing to debug log stream that the function call is started to execute
+		\param invoker object/class/namespace which called the function
+		\param function function name which is executed
+		*/
 		inline ScopeTimer(std::string_view invoker, std::string_view function)
-			: start(Time::Current()), invoker(invoker), function(function)
+			: start(Time::Current()), invoker(invoker), function(function.data())
 		{
 			Logger::Instance().Debug(this->invoker.data(), "calling " + this->function);
 		}
 
+		/*!
+		destroys scope timer, writing to debug log stream that the function execution is ended
+		*/
 		inline ~ScopeTimer()
 		{
 			TimeStep end = Time::Current();
-			std::string delta = BeautifyTime(end - start);
+			MxString delta = BeautifyTime(end - start);
 			Logger::Instance().Debug(this->invoker.data(), this->function + " finished in " + delta);
 		}
 	};
 
-#define CONCAT_IMPL(x, y) x##y
-#define CONCAT(x, y) CONCAT_IMPL(x, y)
-#define MAKE_SCOPE_PROFILER(function) ScopeProfiler CONCAT(_profiler, __LINE__)(Profiler::Instance(), function)
-#define MAKE_SCOPE_TIMER(invoker, function) ScopeTimer CONCAT(_timer, __LINE__)(invoker, function)
+// wrapper aroung ScopeProfiler
+#define MAKE_SCOPE_PROFILER(function) ScopeProfiler MXENGINE_CONCAT(_profiler, __LINE__)(Profiler::Instance(), function)
+// wrapper around ScopeTimer
+#define MAKE_SCOPE_TIMER(invoker, function) ScopeTimer MXENGINE_CONCAT(_timer, __LINE__)(invoker, function)
 }

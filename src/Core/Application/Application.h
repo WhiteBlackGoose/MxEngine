@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -29,17 +29,14 @@
 #pragma once
 
 #include "Utilities/Time/Time.h"
-#include "Utilities/GenericStorage/GenericStorage.h"
-#include "Core/Interfaces/IEvent.h"
-#include "Core/DeveloperConsole/DeveloperConsole.h"
-#include "Core/Interfaces/GraphicAPI/Window.h"
-#include "Core/RenderController/RenderController.h"
+#include "Core/Event/IEvent.h"
+#include "Core/Runtime/RuntimeEditor.h"
+#include "Core/Rendering/RenderAdaptor.h"
 #include "Core/MxObject/MxObject.h"
-#include "Utilities/Counter/Counter.h"
-#include "Utilities/FileSystem/FileSystem.h"
-#include "Library/Scripting/Script/Script.h"
-#include "Core/Scene/Scene.h"
+#include "Utilities/FileSystem/File.h"
+#include "Core/Components/Script.h"
 
+#include "Platform/Window/Window.h"
 
 namespace MxEngine
 {
@@ -54,30 +51,20 @@ namespace MxEngine
 		} manager;
 	private:
 		static inline Application* Current = nullptr;
-
-		ResourceStorage<Scene> scenes;
 		UniqueRef<Window> window;
-		RenderController renderer;
+		RenderAdaptor renderAdaptor;
 		AppEventDispatcher dispatcher;
-		DeveloperConsole console;
-		Counter resourceIdCounter;
-		TimeStep timeDelta;
-		Scene* currentScene = nullptr;
-		int counterFPS;
-		Vector4 debugColor = MakeVector4(1.0f, 0.0f, 0.0f, 1.0f);
-		bool drawBoxes     = false;
-		bool drawSpheres   = false;
-		bool overlayDebug  = false;
-		bool shouldClose   = false;
-		bool isRunning     = false;
-		bool drawLighting  = true;
+		RuntimeEditor console;
+		TimeStep timeDelta = 0.0f;
+		int counterFPS = 0;
+		bool shouldClose = false;
+		bool isRunning = false;
 
-		void CreateConsoleBindings(DeveloperConsole& console);
+		void InitializeRuntimeEditor(RuntimeEditor& console);
+		void InitializeRenderAdaptor(RenderAdaptor& adaptor);
 		void DrawObjects();
 		void InvokeUpdate();
 		bool VerifyApplicationState();
-		void VerifyRendererState();
-		void VerifyLightSystem(LightSystem& lights);
 	protected:
 
 		Application();
@@ -86,34 +73,20 @@ namespace MxEngine
 		virtual void OnUpdate();
 		virtual void OnDestroy();
 	public:
-		void CreateContext();
-		void ExecuteScript(Script& script);
-		void ExecuteScript(const std::string& script);
-		void ExecuteScript(const char* script);
-
-		void ToggleDeveloperConsole(bool isVisible);
-		void ToggleLighting(bool state = true);
-		void ToggleDebugDraw(bool aabb, bool spheres, const Vector4& color,  bool overlay = false);
+		void ToggleRuntimeEditor(bool isVisible);
+		void CloseOnKeyPress(KeyCode key);
 
 		AppEventDispatcher& GetEventDispatcher();
-		RenderController& GetRenderer();
+		RenderAdaptor& GetRenderAdaptor();
 		LoggerImpl& GetLogger();
-		DeveloperConsole& GetConsole();
+		RuntimeEditor& GetRuntimeEditor();
 		Window& GetWindow();
-		Scene& GetCurrentScene();
-		Scene& GetGlobalScene();
-		void LoadScene(const std::string& name);
-		Scene& CreateScene(const std::string& name, UniqueRef<Scene> scene);
-		Scene& GetScene(const std::string& name);
-		bool SceneExists(const std::string& name);
-		void DestroyScene(const std::string& name);
-		Counter::CounterType GenerateResourceId();
 		float GetTimeDelta() const;
 		int GetCurrentFPS() const;
-		void SetMSAASampling(size_t samples);
 		void Run();
 		bool IsRunning() const;
 		void CloseApplication();
+		void CreateContext();
 		virtual ~Application();
 
 		static Application* Get();

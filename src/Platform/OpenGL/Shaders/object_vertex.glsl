@@ -3,6 +3,7 @@ R"(
 #version 400 core
 #define MAX_POINT_LIGHTS 2
 #define MAX_SPOT_LIGHTS 8
+#define MAX_DIR_LIGHTS 2
 )" \
 MAKE_STRING(
 
@@ -13,14 +14,15 @@ layout(location = 3)  in vec3 tangent;
 layout(location = 4)  in vec3 bitangent;
 layout(location = 5)  in mat4 model;
 layout(location = 9)  in mat3 normalMatrix;
-layout(location = 12) in vec4 renderColor;
+layout(location = 12) in vec3 renderColor;
 
 uniform mat4 ViewProjMatrix;
-uniform mat4 DirLightProjMatrix;
+uniform mat4 DirLightProjMatrix[MAX_DIR_LIGHTS];
 uniform mat4 SpotLightProjMatrix[MAX_SPOT_LIGHTS];
 uniform int pointLightCount;
 uniform int spotLightCount;
-uniform vec3 displacement;
+uniform int dirLightCount;
+uniform float displacement;
 uniform sampler2D map_height;
 
 out VSout
@@ -28,8 +30,8 @@ out VSout
 	vec2 TexCoord;
 	vec3 Normal;
 	vec3 FragPosWorld;
-	vec4 RenderColor;
-	vec4 FragPosDirLight;
+	vec3 RenderColor;
+	vec4 FragPosDirLight[MAX_DIR_LIGHTS];
 	vec4 FragPosSpotLight[MAX_SPOT_LIGHTS];
 	mat3 TBN;
 } vsout;
@@ -43,18 +45,23 @@ void main()
 
 	vsout.TBN = mat3(T, B, N);
 	vsout.TexCoord = texCoord;
-	vsout.Normal = normalMatrix * normal;
+	vsout.Normal = N;
+
+	modelPos.xyz += displacement * vsout.Normal * (texture(map_height, texCoord).rgb - vec3(0.5f)) * 2.0f;
 
 	vsout.FragPosWorld = vec3(modelPos);
 	vsout.RenderColor = renderColor;
-	vsout.FragPosDirLight = DirLightProjMatrix * modelPos;
+
+	for (int i = 0; i < dirLightCount; i++)
+	{
+		vsout.FragPosDirLight[i] = DirLightProjMatrix[i] * modelPos;
+	}
 
 	for (int i = 0; i < spotLightCount; i++)
 	{
 		vsout.FragPosSpotLight[i] = SpotLightProjMatrix[i] * modelPos;
 	}
 
-	modelPos.xyz += displacement * vsout.Normal * (texture(map_height, texCoord).rgb - vec3(0.5f)) * 2.0f;
 
 	gl_Position = ViewProjMatrix * modelPos;
 }

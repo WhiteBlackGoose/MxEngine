@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -30,7 +30,9 @@
 #if defined(MXENGINE_USE_PYTHON)
 
 #include "Core/Application/Application.h"
-#include "Core/Interfaces/GraphicAPI/GraphicFactory.h"
+#include "Utilities/FileSystem/FileManager.h"
+#include "Utilities/ECS/ComponentFactory.h"
+#include "Core/Resources/ResourceFactory.h"
 
 namespace MxEngine
 {
@@ -65,14 +67,21 @@ class MxEngineIOHandler:
         this->MirrorErrorStream(false);
 
         auto ctxPtr = reinterpret_cast<uintptr_t>(Application::Get());
-        auto grfPtr = reinterpret_cast<uintptr_t>(Graphics::Instance());
-        auto contextInitScript = Format("mx_engine.MxEngineSetContextPointers({0}, {1})", ctxPtr, grfPtr);
+        auto fileManagerPtr = reinterpret_cast<uintptr_t>(FileManager::GetImpl());
+        auto uuidGenPtr = reinterpret_cast<uintptr_t>(UUIDGenerator::GetImpl());
+        auto graphicPtr = reinterpret_cast<uintptr_t>(GraphicFactory::GetImpl());
+        auto componentPtr = reinterpret_cast<uintptr_t>(ComponentFactory::GetImpl());
+        auto mxobjectPtr = reinterpret_cast<uintptr_t>(MxObject::Factory::GetImpl());
+        auto resourcePtr = reinterpret_cast<uintptr_t>(ResourceFactory::GetImpl());
+        auto contextInitScript = Format("mx_engine.MxEngineSetContextPointer({}, {}, {}, {}, {}, {}, {})", 
+            ctxPtr, fileManagerPtr, uuidGenPtr, graphicPtr, componentPtr, mxobjectPtr, resourcePtr);
         this->Execute(contextInitScript.c_str());
         this->Execute("mx = mx_engine.get_context()");
     }
 
     PythonEngine::BoxedValue PythonEngine::Execute(const char* code)
     {
+        return BoxedValue{ };
         try
         {
             BoxedValue result = python::exec(code, this->pythonNamespace);
@@ -84,11 +93,11 @@ class MxEngineIOHandler:
             if (this->pythonNamespace.contains("outputHandler"))
             {
                 python::object output = this->pythonNamespace["outputHandler"].attr("value");
-                this->lastOutput = python::extract<std::string>(output);
+                this->lastOutput = ToMxString((std::string)python::extract<std::string>(output));
                 if(!this->lastOutput.empty())
                     this->lastOutput.pop_back(); // delete last '\n'
 
-                this->pythonNamespace["outputHandler"].attr("value") = "";
+                this->pythonNamespace["outputHandler"].attr("Value") = "";
             }
             return result;
         }
@@ -98,7 +107,7 @@ class MxEngineIOHandler:
             try
             {
                 python::object msg = this->pythonNamespace["errorHandler"].attr("value");
-                this->lastError = python::extract<std::string>(msg);
+                this->lastError = ToMxString((std::string)python::extract<std::string>(msg));
             }
             catch (python::error_already_set&)
             {
@@ -133,7 +142,17 @@ class MxEngineIOHandler:
         this->Execute("sys.stderr = errorHandler");
     }
 
-    const std::string& PythonEngine::GetErrorMessage() const
+    PythonEngine::PythonModule& PythonEngine::GetModule()
+    {
+        return this->pythonModule;
+    }
+
+    PythonEngine::PythonNamespace& PythonEngine::GetNamespace()
+    {
+        return this->pythonNamespace;
+    }
+
+    const MxString& PythonEngine::GetErrorMessage() const
     {
         return this->lastError;
     }
@@ -143,7 +162,7 @@ class MxEngineIOHandler:
         return !this->lastError.empty();
     }
 
-    const std::string& PythonEngine::GetOutput() const
+    const MxString& PythonEngine::GetOutput() const
     {
         return this->lastOutput;
     }

@@ -6,17 +6,19 @@ R"(
 #define Kquadratic K[2]
 #define MAX_POINT_LIGHTS 2
 #define MAX_SPOT_LIGHTS 8
+#define MAX_DIR_LIGHTS 2
 #define POINT_LIGHT_SAMPLES 20
 )" \
 MAKE_STRING(
+
 
 in VSout
 {
 	vec2 TexCoord;
 	vec3 Normal;
 	vec3 FragPosWorld;
-	vec4 RenderColor;
-	vec4 FragPosDirLight;
+	vec3 RenderColor;
+	vec4 FragPosDirLight[MAX_DIR_LIGHTS];
 	vec4 FragPosSpotLight[MAX_SPOT_LIGHTS];
 	mat3 TBN;
 } fsin;
@@ -72,19 +74,21 @@ uniform sampler2D map_Kd;
 uniform sampler2D map_Ks;
 uniform sampler2D map_Ke;
 uniform sampler2D map_normal;
-uniform sampler2D map_dirLight_shadow;
 uniform samplerCube map_pointLight_shadow[MAX_POINT_LIGHTS];
 uniform sampler2D map_spotLight_shadow[MAX_SPOT_LIGHTS];
+uniform sampler2D map_dirLight_shadow[MAX_DIR_LIGHTS];
 uniform samplerCube map_skybox;
-uniform float Ka;
-uniform float Kd;
+uniform int dirLightCount;
 uniform int pointLightCount;
 uniform int spotLightCount;
 uniform int PCFdistance;
+uniform vec3 fogColor;
+uniform float fogDensity;
+uniform float fogDistance;
 uniform mat3 skyboxModelMatrix;
 uniform Material material;
 uniform vec3 viewPos;
-uniform DirLight dirLight;
+uniform DirLight dirLight[MAX_DIR_LIGHTS];
 uniform PointLight pointLight[MAX_POINT_LIGHTS];
 uniform SpotLight spotLight[MAX_SPOT_LIGHTS];
 
@@ -215,21 +219,30 @@ vec3 calcNormal(vec2 texcoord, mat3 TBN)
 	return TBN * normal;
 }
 
+vec3 applyFog(vec3 color, float distance, vec3 viewDir)
+{
+	float fogFactor = 1.0f - fogDistance * exp(-distance * fogDensity);
+	return mix(color, fogColor, clamp(fogFactor, 0.0f, 1.0f));
+}
+
 void main()
 {
 	vec3 normal = calcNormal(fsin.TexCoord, fsin.TBN);
 	vec3 viewDist = viewPos - fsin.FragPosWorld;
 	vec3 viewDir = normalize(viewDist);
 
-	vec3 ambient = vec3(texture(map_Ka, fsin.TexCoord)) * Ka; // * material.Ka;
-	vec3 diffuse = vec3(texture(map_Kd, fsin.TexCoord)) * Kd; // * material.Kd;
+	vec3 ambient  = vec3(texture(map_Ka, fsin.TexCoord)) * material.Ka;
+	vec3 diffuse  = vec3(texture(map_Kd, fsin.TexCoord)) * material.Kd;
 	vec3 specular = vec3(texture(map_Ks, fsin.TexCoord)) * material.Ks;
 	vec3 emmisive = vec3(texture(map_Ke, fsin.TexCoord)) * material.Ke;
 	vec3 reflection = calcReflection(viewDir, normal);
 
 	vec3 color = vec3(0.0f);
-	// directional light
-	color += calcDirLight(ambient, diffuse, specular, dirLight, normal, viewDir, reflection, fsin.FragPosDirLight, map_dirLight_shadow);
+	// directional lights
+	for (int i = 0; i < dirLightCount; i++)
+	{
+		color += calcDirLight(ambient, diffuse, specular, dirLight[i], normal, viewDir, reflection, fsin.FragPosDirLight[i], map_dirLight_shadow[i]);
+	}
 	// point lights
 	for (int i = 0; i < pointLightCount; i++)
 	{
@@ -240,13 +253,13 @@ void main()
 	{
 		color += calcSpotLight(ambient, diffuse, specular, spotLight[i], normal, viewDir, fsin.FragPosSpotLight[i], map_spotLight_shadow[i]);
 	}
-	float dissolve = material.d; // * texture(map_d, fsin.TexCoord).x * material.d;
+	float dissolve = material.d;
+
+	color = applyFog(color, length(viewDist), viewDir);
+
 	// emmisive light
 	color += 5.0f * emmisive;
-
-	color *= fsin.RenderColor.rgb;
-	dissolve *= fsin.RenderColor.a;
-
+	color *= fsin.RenderColor;
 	Color = vec4(color, dissolve);
 }
 

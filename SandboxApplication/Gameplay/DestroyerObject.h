@@ -1,20 +1,13 @@
 #pragma once
 
-#include <MxEngine.h>
-
-using namespace MxEngine;
-
-class DestroyerObject : public MxObject
+void InitDestroyer(MxObject& object)
 {
-public:
-	inline DestroyerObject()
-	{
-		auto context = Application::Get();
-		this->SetMesh(context->GetCurrentScene().LoadMesh("DestroyerMesh", "objects/destroyer/destroyer.obj"));
-		this->ObjectTexture = context->GetCurrentScene().LoadTexture("DestroyerTexture", "objects/destroyer/Aluminm5.jpg");
+	auto objectPath = "objects/destroyer/destroyer.obj"_id;
 
-		this->Translate(3.0f, 1.0f, 2.0f);
-		this->Translate(-5, 0.0f, 5.0f);
-		this->ObjectTransform.Scale(0.0005f);
-	}
-};
+	object.AddComponent<MeshSource>(AssetManager::LoadMesh(objectPath));
+	object.AddComponent<MeshRenderer>(AssetManager::LoadMaterials(objectPath));
+
+	object.Transform->Translate(MakeVector3(3.0f, 1.0f, 2.0f));
+	object.Transform->Translate(MakeVector3(-5, 0.0f, 5.0f));
+	object.Transform->Scale(0.0005f);
+}

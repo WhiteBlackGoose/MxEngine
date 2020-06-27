@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -32,9 +32,14 @@
 #include <string>
 
 #include "Utilities/SingletonHolder/SingletonHolder.h"
+#include "Utilities/Format/Format.h"
 
 namespace MxEngine
 {
+	/*!
+	Logger class is a singleton which is used by whole engine to output warnings, info, debug messages and errors
+	it provides output stream forwarding and ignoring, colored output on some platforms and stacktrace for errors
+	*/
 	class LoggerImpl
 	{
 		std::ostream* error   = &std::cout;
@@ -49,20 +54,64 @@ namespace MxEngine
 		LoggerImpl(const LoggerImpl&) = delete;
 		LoggerImpl(LoggerImpl&&) = delete;
 
-		void Error  (const std::string& invoker, const std::string& message) const;
-		void Debug  (const std::string& invoker, const std::string& message) const;
-		void Warning(const std::string& invoker, const std::string& message) const;
+		/*!
+		prints error to an error stream (defaults to std::cout). Error is colored red. By default stacktrace is also printed (may cause performance issues on some platforms)
+		\param invoker name of module which invokes the error
+		\param message error message
+		*/
+		void Error  (const MxString& invoker, const MxString& message) const;
+		/*!
+		prints debug info to an debug stream (defaults to std::cout). Debug message is colored light-grey. Stacktrace is not printed
+		\param invoker name of module which invokes the debug message
+		\param message debug message
+		*/
+		void Debug  (const MxString& invoker, const MxString& message) const;
+		/*!
+		prints warning to an warning stream (defaults to std::cout). Warning is colored yellow. Stacktrace is not printed
+		\param invoker name of module which invokes the warning
+		\param message warning message
+		*/
+		void Warning(const MxString& invoker, const MxString& message) const;
+		/*!
+		prints stacktrace to error stream if stacktracing is enabled (defaults std::cout). 
+		Logger function itself, CRT functions or other system functions are ignored and not printed
+		*/
 		void StackTrace() const;
+		/*!
+		sets error stream. nullptr as parameter disables error output
+		\param error new stream pointer
+		*/
 		LoggerImpl& UseErrorStream(std::ostream* error);
+		/*!
+		sets warning stream. nullptr as parameter disables warning output
+		\param error new stream pointer
+		*/
 		LoggerImpl& UseWarningStream(std::ostream* warning);
+		/*!
+		sets debug stream. nullptr as parameter disables debug output
+		\param error new stream pointer
+		*/
 		LoggerImpl& UseDebugStream(std::ostream* debug);
+		/*!
+		enables / disables debug stream output
+		*/
 		LoggerImpl& UseDebug(bool value = true);
+		/*!
+		enables / disables warning stream output
+		*/
 		LoggerImpl& UseWarning(bool value = true);
+		/*!
+		enables / disables error stream output
+		*/
 		LoggerImpl& UseError(bool value = true);
+		/*!
+		enables / disables stacktrace output (see StackTrace() function)
+		*/
 		LoggerImpl& UseStackTrace(bool value = true);
 	};
 
 	using Logger = SingletonHolder<LoggerImpl>;
 
+	// macro for fast debug messages insert. Prints warnings in format [MX_DBG Warning]: { your message }
 	#define MX_DBG(msg) Logger::Instance().Warning("MX_DBG", msg)
 }

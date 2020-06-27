@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -28,66 +28,152 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
 #include <sstream>
-#include <unordered_map>
 
 #include "Utilities/Math/Math.h"
 #include "Core/BoundingObjects/AABB.h"
+#include "Utilities/STL/MxHashMap.h"
+#include "Utilities/STL/MxString.h"
+#include "Utilities/STL/MxVector.h"
+#include "Core/Resources/MeshData.h"
 
 namespace MxEngine
 {
+	/*!
+	material info is a plain data structure, containing info how to load all resources of object material
+	*/
 	struct MaterialInfo
 	{
-		std::string name;
+		/*!
+		name of material
+		*/
+		MxString Name;
 
-		std::string map_Ka;
-		std::string map_Kd;
-		std::string map_Ks;
-		std::string map_Ke;
-		std::string map_d;
-		std::string map_height;
-		std::string bump;
+		/*!
+		ambient texture path
+		*/
+		MxString AmbientMap;
+		/*!
+		diffuse texture path
+		*/
+		MxString DiffuseMap;
+		/*!
+		specular texture path
+		*/
+		MxString SpecularMap;
+		/*!
+		emmisive texture path
+		*/
+		MxString EmmisiveMap;
+		/*!
+		height texture path
+		*/
+		MxString HeightMap;
+		/*!
+		normal texture path
+		*/
+		MxString NormalMap;
 
-		float Ns = 0.0f;
-		float Ni = 0.0f;
-		float d = 0.0f;
-		float displacement = 0.0f;
-		Vector3 Tf{ 0.0f };
-		Vector3 Ka{ 0.0f };
-		Vector3 Kd{ 0.0f };
-		Vector3 Ks{ 0.0f };
-		Vector3 Ke{ 0.0f };
-		int illum = 0;
-		bool IsSuccess = true;
+		/*!
+		specular power value
+		*/
+		float SpecularExponent = 0.0f;
+		/*!
+		transparency value
+		*/
+		float Transparency = 0.0f;
+		/*!
+		height displacement value
+		*/
+		float Displacement = 0.0f;
+		
+		/*!
+		ambient color
+		*/
+		Vector3 AmbientColor{ 0.0f };
+		/*!
+		diffuse color
+		*/
+		Vector3 DiffuseColor{ 0.0f };
+		/*!
+		specular color
+		*/
+		Vector3 SpecularColor{ 0.0f };
+		/*!
+		emmisive color
+		*/
+		Vector3 EmmisiveColor{ 0.0f };
 	};
 
+	/*!
+	mesh info is a temporary class which stores object model data. Later it is used to construct SubMesh class object
+	*/
 	struct MeshInfo
 	{
-		std::string name;
-		std::vector<float> buffer;
-		std::vector<unsigned int> faces;		
+		/*!
+		name of mesh
+		*/
+		MxString name;
+		/*!
+		buffer containing all vertex data
+		*/
+		MxVector<Vertex> vertecies;
+		/*
+		face indicies to access buffer of verteces
+		*/
+		MxVector<uint32_t> indicies;		
+		/*!
+		mesh material pointer (to external table passed with MeshInfo inside ObjectInfo)
+		*/
 		MaterialInfo* material = nullptr;
+		/*!
+		has the mesh texture data (uv-coords) or not
+		*/
 		bool useTexture = false;
+		/*!
+		has the mesh normal data (and tangent space) or not
+		*/
 		bool useNormal = false;
-		constexpr static size_t VertexSize = (3 + 2 + 3 + 3 + 3);
 
-		size_t GetVertexCount() const { return this->buffer.size() / VertexSize; }
+		/*!
+		returns count of verteces in buffer
+		*/
+		size_t GetVertexCount() const { return this->vertecies.size(); }
 	};
 
-	using MaterialLibrary = std::vector<MaterialInfo>;
+	using MaterialLibrary = MxVector<MaterialInfo>;
 
+	/*!
+	object info a special class which contains all data from which in-game object can be constructed
+	it includes verteces, materials and precomputed bounding box. Also note that object is guaranteed to be aligned at (0, 0, 0), game world center
+	*/
 	struct ObjectInfo
 	{
+		/*!
+		list of all materials. MeshInfo references each by pointer, so MaterialLibrary should not be altered after ObjectInfo construction
+		*/
 		MaterialLibrary materials;
-		std::vector<MeshInfo> meshes;
-		AABB boundingBox;
+		/*!
+		list of all object meshes. For more info see MeshInfo documentation
+		*/
+		MxVector<MeshInfo> meshes;
 	};
 
+	/*!
+	object loader is a special class which loads any type of file with object data into MxEngine compatible format (i.e. ObjectInfo)
+	it supports same file types as Assimp library does, as it is base on it. For more info check documentation: https://github.com/assimp/assimp
+	*/
 	class ObjectLoader
 	{
 	public:
-		static ObjectInfo Load(std::string path);
+		/*
+		loads object from disk by its file path
+		\param path absoulute or relative to executable folder path to a file to load
+		\returns ObjectInfo instance
+		\warning this function is not thread safe
+		*/
+		static ObjectInfo Load(const MxString& path);
+		static MaterialLibrary LoadMaterials(const MxString& path);
+		static void DumpMaterials(const MaterialLibrary& materials, const MxString& path);
 	};
 }

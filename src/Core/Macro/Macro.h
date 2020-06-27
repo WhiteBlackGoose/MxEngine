@@ -6,15 +6,16 @@
         #define MXENGINE_WINDOWS64
     #else
         #define MXENGINE_WINDOWS32
+        #error MxEngine can target only x64 platform
     #endif
 #else
-#error MxEngine must be runned on Windows platform
+#warning MxEngine should be compiled under Windows platform
 #endif
 
-#if defined(_DEBUG) && !defined(NDEBUG)
-    #define MXENGINE_DEBUG
-#else 
+#if defined(NDEBUG) || !defined(_DEBUG)
     #define MXENGINE_RELEASE
+#else 
+    #define MXENGINE_DEBUG
 #endif
 
 // at least one must be defined:
@@ -61,7 +62,7 @@
 
 #define INVOKE_ONCE(...) static char MXENGINE_CONCAT(unused, __LINE__) = [&](){ __VA_ARGS__; return '\0'; }()
 
-#define BOOL_STRING(b) ((b) ? "true" : "false")
+#define BOOL_STRING(b) (bool(b) ? "true" : "false")
 
 #define MXENGINE_STRING_IMPL(x) #x
 #define MXENGINE_STRING(x) MXENGINE_STRING_IMPL(x)
@@ -78,3 +79,8 @@
 #else
     #define MX_ASSERT(expr)
 #endif
+
+#define GENERATE_METHOD_CHECK(NAME, ...) namespace MxEngine { template<typename T> class has_method_##NAME {\
+    template<typename U> constexpr static auto check(int) -> decltype(std::declval<U>().__VA_ARGS__, bool()) { return true; }\
+    template<typename> constexpr static bool check(...) { return false; } public:\
+    static constexpr bool value = check<T>(0); }; }

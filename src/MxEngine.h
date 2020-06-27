@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -30,15 +30,30 @@
 
 #include "Core/Macro/Macro.h"
 #include "Core/Application/Application.h"
+#include "Core/Application/RenderManager.h"
 #include "Utilities/Memory/Memory.h"
 #include "Core/MxObject/MxObject.h"
-#include "Core/Interfaces/GraphicAPI/GraphicFactory.h"
+#include "Platform/GraphicAPI.h"
+#include "Platform/Window/InputManager.h"
+#include "Platform/Window/WindowManager.h"
 #include "Utilities/Logger/Logger.h"
-#include "Core/Camera/PerspectiveCamera.h"
-#include "Core/Camera/OrthographicCamera.h"
+#include "Core/Components/Camera/PerspectiveCamera.h"
+#include "Core/Components/Camera/OrthographicCamera.h"
+#include "Core/Components/Camera/CameraController.h"
+#include "Core/Components/Components.h"
+#include "Utilities/FileSystem/FileManager.h"
+#include "Core/Application/EventManager.h"
 #include "Core/Event/Event.h"
 #include "Utilities/Math/Math.h"
 #include "Utilities/ImGui/ImGuiUtils.h"
 #include "Utilities/Format/Format.h"
 #include "Utilities/Random/Random.h"
 #include "Utilities/Array/Array2D.h"
+#include "Utilities/Image/ImageManager.h"
+#include "Library/Primitives/Primitives.h"
+#include "Library/Primitives/Colors.h"
+
+/*!
+Main namespace of MxEngine framework. All classes are located here or in nested namespaces
+*/
+namespace MxEngine { }

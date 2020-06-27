@@ -1,7 +1,7 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
@@ -34,7 +34,8 @@
 
 #define BOOST_PYTHON_STATIC_LIB
 #include <boost/python.hpp>
-#include <string>
+
+#include "Utilities/STL/MxString.h"
 
 namespace MxEngine
 {
@@ -47,19 +48,21 @@ namespace MxEngine
 
         PythonModule pythonModule;
         PythonNamespace pythonNamespace;
-        std::string lastError;
-        std::string lastOutput;
+        MxString lastError;
+        MxString lastOutput;
     public:
         using BoxedValue = python::api::object;
 
         PythonEngine();
         BoxedValue Execute(const char* code);
+        PythonModule& GetModule();
+        PythonNamespace& GetNamespace();
         void MirrorOutStream(bool value);
         void MirrorErrorStream(bool value);
         
         bool HasErrors() const;
-        const std::string& GetErrorMessage() const;
-        const std::string& GetOutput() const;
+        const MxString& GetErrorMessage() const;
+        const MxString& GetOutput() const;
     };
 }
 #endif

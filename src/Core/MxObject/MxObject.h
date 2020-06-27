@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -27,93 +27,104 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
-#include "Core/Interfaces/IDrawable.h"
-#include "Core/Interfaces/IMovable.h"
-#include "Core/MxObject/Mesh.h"
-#include "Core/Components/Transform/Transform.h"
-#include "Core/Components/Instancing/Instancing.h"
+
+#include "Core/Resources/Mesh.h"
+#include "Core/Components/Transform.h"
+#include "Core/Components/InstanceFactory.h"
+#include "Core/Components/Rendering/MeshRenderer.h"
+
+GENERATE_METHOD_CHECK(Init, Init())
 
 namespace MxEngine
 {
-	class MxObject : public IDrawable, public IMovable
-	{		
-	protected:
-		Mesh* ObjectMesh = nullptr;
-	private:
-		Vector3 forwardVec{ 0.0f, 0.0f, 1.0f }, upVec{ 0.0f, 1.0f, 0.0f }, rightVec{ 1.0f, 0.0f, 0.0f };
-		Vector4 renderColor{ 1.0f, 1.0f, 1.0f, 1.0f };
-		UniqueRef<Instancing<MxObject>> instances;
-		bool shouldRender = true;
-		bool instanceUpdate = true;
+	class MxObject
+	{
 		mutable AABB boundingBox;
 
-		void ReserveInstances(size_t count, UsageType usage);
-	public:
-		using ArrayBufferType = const float*;
-		bool UseLOD = true;
+		using EngineHandle = size_t;
+		constexpr static EngineHandle InvalidHandle = std::numeric_limits<EngineHandle>::max();
+		EngineHandle handle = InvalidHandle;
 
+	public:
+		MxString Name = UUIDGenerator::Get();
 		float TranslateSpeed = 1.0f;
 		float RotateSpeed = 1.0f;
 		float ScaleSpeed = 1.0f;
-		Transform ObjectTransform;
-		Shader* ObjectShader = nullptr;
-		Texture* ObjectTexture = nullptr;
-		MxObject() = default;
-		MxObject(Mesh* mesh);
+		Transform::Handle Transform;
+	private:
+		ComponentManager components;
+	public:
+		using Factory = AbstractFactoryImpl<MxObject>;
+		using Handle = Resource<MxObject, Factory>;
+
+		static Handle Create();
+		static void Destroy(Handle& object);
+		static void Destroy(MxObject& object);
+
+		static ComponentView<MxObject> GetObjects();
+		static Handle GetByName(const MxString& name);
+
+		template<typename T>
+		static MxObject& GetByComponent(T& component)
+		{
+			auto handle = reinterpret_cast<EngineHandle>(component.UserData);
+			MX_ASSERT(handle != InvalidHandle);
+			auto& managedObject = Factory::Get<MxObject>()[handle];
+			return managedObject.value;
+		}
+
+		template<typename T>
+		static Handle GetHandleByComponent(T& component)
+		{
+			auto handle = reinterpret_cast<EngineHandle>(component.UserData);
+			MX_ASSERT(handle != InvalidHandle);
+			auto& managedObject = Factory::Get<MxObject>()[handle];
+			MX_ASSERT(managedObject.refCount > 0 && managedObject.uuid != UUIDGenerator::GetNull());
+			return MxObjectHandle(managedObject.uuid, handle);
+		}
+
+		MxObject();
 		MxObject(const MxObject&) = delete;
+		MxObject& operator=(const MxObject&) = delete;
 		MxObject(MxObject&&) = default;
+		MxObject& operator=(MxObject&&) = default;
+		~MxObject();
 
-		virtual void OnUpdate();
-		virtual void OnRenderDraw();
+		template<typename T, typename... Args>
+		auto AddComponent(Args&&... args)
+		{
+			auto component = this->components.AddComponent<T>(std::forward<Args>(args)...);
+			component->UserData = reinterpret_cast<void*>(this->handle);
+			if constexpr (has_method_Init<T>::value) component->Init();
+			return component;
+		}
 
-		void SetMesh(Mesh* mesh);
-		Mesh* GetMesh();
-		const Mesh* GetMesh() const;
-		void Hide();
-		void Show();
+		template<typename T>
+		auto GetComponent() const
+		{
+			return this->components.GetComponent<T>();
+		}
 
-		void SetForwardVector(const Vector3& forward);
-		void SetUpVector(const Vector3& up);
-		void SetRightVector(const Vector3& right);
-		MxObject& Scale(float x, float y, float z);
-		MxObject& Rotate(float x, float y, float z);
-		void SetRenderColor(const Vector4& color);
+		template<typename T>
+		auto GetOrAddComponent()
+		{
+			if (!this->HasComponent<T>())
+				return this->AddComponent<T>();
+			else
+				return this->GetComponent<T>();
+		}
 
-		void AddInstancedBuffer(ArrayBufferType buffer, size_t count, size_t components, size_t perComponentFloats = 4, UsageType type = UsageType::DYNAMIC_DRAW);
-		void BufferDataByIndex(size_t index, ArrayBufferType buffer, size_t count, size_t offset = 0);
-		size_t GetBufferCount() const;
-		MxInstanceWrapper<MxObject> Instanciate();
-		const Instancing<MxObject>::InstanceList& GetInstances() const;
-		Instancing<MxObject>::InstanceList& GetInstances();
-		void MakeInstanced(size_t instanced, UsageType usage = UsageType::DYNAMIC_DRAW);
-		void DestroyInstances();
-		void SetAutoBuffering(bool value = true);
-		void BufferInstances();
+		template<typename T>
+		void RemoveComponent()
+		{
+			static_assert(!std::is_same_v<T, MxEngine::Transform>, "Transform component cannot be deleted");
+			this->components.RemoveComponent<T>();
+		}
 
-		const AABB& GetAABB() const;
-
-		// Inherited via IDrawable
-		virtual size_t GetIterator() const override;
-		virtual bool IsLast(size_t iterator) const override;
-		virtual size_t GetNext(size_t iterator) const override;
-		virtual const IRenderable& GetCurrent(size_t iterator) const override;
-		virtual const Transform& GetTransform() const override;
-		virtual bool HasShader() const override;
-		virtual const Vector4& GetRenderColor() const override;
-		virtual const Shader& GetShader() const override;
-		virtual bool IsDrawable() const override;
-		virtual bool HasTexture() const override;
-		virtual const Texture& GetTexture() const override;
-		virtual size_t GetInstanceCount() const override;
-
-		// Inherited via IMovable
-		virtual MxObject& Translate(float x, float y, float z) override;
-		virtual MxObject& TranslateForward(float dist) override;
-		virtual MxObject& TranslateRight(float dist) override;
-		virtual MxObject& TranslateUp(float dist) override;
-		virtual MxObject& Rotate(float horz, float vert) override;
-		virtual const Vector3& GetForwardVector() const override;
-		virtual const Vector3& GetUpVector() const override;
-		virtual const Vector3& GetRightVector() const override;
+		template<typename T>
+		bool HasComponent() const
+		{
+			return this->components.HasComponent<T>();
+		}
 	};
 }

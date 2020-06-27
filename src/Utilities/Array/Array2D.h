@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include <vector>
+#include "Utilities/STL/MxVector.h"
 #include "Utilities/Array/ArrayView.h"
 
 namespace MxEngine
@@ -37,7 +37,7 @@ namespace MxEngine
     Rectangular array sized [width * height] where all elements are fitted into one contiguous memory block
     Each element is accessed as Array[width_idx][height_idx], indexing Array[width_idx] requires one multiplication operation
     */
-    template<typename T, template<typename> typename Base = std::vector>
+    template<typename T, template<typename> typename Base = MxVector>
     class Array2D
     {
     public:
@@ -60,7 +60,7 @@ namespace MxEngine
         Array2D& operator=(const Array2D&) = default;
         Array2D& operator=(Array2D&&) = default;
         ~Array2D() = default;
-        size_t size() const;
+        [[nodiscard]] size_t size() const;
         size_t width() const;
         size_t height() const;
         T* data();

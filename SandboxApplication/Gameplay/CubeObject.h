@@ -1,35 +1,25 @@
 #pragma once
 
-#include <MxEngine.h>
-#include <Library/Primitives/Cube.h>
-
-using namespace MxEngine;
-
-class CubeObject : public Cube
+struct CubeBehaviour
 {
-	int cubeCount = 100;
-public:
-	inline CubeObject()
-	{
-		auto context = Application::Get();
-		this->ObjectTexture = context->GetCurrentScene().LoadTexture("CrateTexture", "objects/crate/crate.jpg");
-		this->MakeInstanced(cubeCount);
+	std::vector<InstanceFactory::MxInstance> instances;
 
-		this->Translate(0.5f, 0.0f, 0.5f);
-	}
-
-	inline virtual void OnUpdate() override
+	void OnUpdate(MxObject& object, float dt)
 	{
 		static float counter = 1.0f;
 		static size_t offset = 0;
-		static float maxHeight = 0.5f * (cubeCount - 1);
+		size_t idx = 0;
 
-		auto& instances = this->GetInstances();
+		auto instances = object.GetComponent<InstanceFactory>();
+		if (!instances.IsValid()) return;
+		float maxHeight = 0.5f * (instances->GetCount() - 1);
 
-		for(size_t idx = 0; idx < instances.size(); idx++)
+		auto view = instances->GetInstances();
+		for (auto& instance : view)
 		{
 			int id = int(idx - offset);
-			counter += 0.0005f * Application::Get()->GetTimeDelta();
+			idx++;
+			counter += 0.0005f * dt;
 
 			Vector3 position;
 			position.x = 5.0f * std::sin(0.2f * id + counter);
@@ -38,7 +28,27 @@ public:
 
 			if (position.y > maxHeight) offset++;
 
-			instances[idx].Model.SetTranslation(position);
+			instance.Transform.SetPosition(position);
 		}
 	}
 };
+
+void InitCube(MxObject& cube)
+{
+	cube.Transform->Translate(MakeVector3(0.5f, 0.0f, 0.5f));
+	cube.Name = "Crate";
+
+	auto meshSource = cube.AddComponent<MeshSource>(Primitives::CreateCube());
+	auto meshRenderer = cube.AddComponent<MeshRenderer>();
+	auto instances = cube.AddComponent<InstanceFactory>();
+	auto behaviour = cube.AddComponent<Behaviour>(CubeBehaviour{ });
+
+	for (size_t i = 0; i < 100; i++)
+	{
+		instances->MakeInstance().MakeStatic();
+	}
+
+	auto cubeTexture = AssetManager::LoadTexture("objects/crate/crate.jpg"_id);
+	meshRenderer->GetMaterial()->AmbientMap = cubeTexture;
+	meshRenderer->GetMaterial()->DiffuseMap = cubeTexture;
+}

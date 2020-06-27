@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -29,12 +29,35 @@
 #pragma once
 
 #include "Vendors/fmt/format.h"
+#include "Utilities/STL/MxString.h"
 
 namespace MxEngine
 {
+    /*!
+    formats string. for more info see https://github.com/fmtlib/fmt documentation
+    \param formatStr formatting string
+    \param args variadic argument list
+    \returns formatted string object
+    */
     template<typename S, typename... Args, typename Char = fmt::char_t<S>>
     inline std::basic_string<Char> Format(const S& formatStr, Args&&... args)
     {
         return fmt::format(formatStr, std::forward<Args>(args)...);
     }
+
+    template<typename S, typename... Args, typename Char = fmt::char_t<S>>
+    inline MxString MxFormat(const S& formatStr, Args&&... args)
+    {
+        return MxString { Format(formatStr, std::forward<Args>(args)...).c_str() };
+    }
 }
+
+template <>
+struct fmt::formatter<MxEngine::MxString> : formatter<string_view>
+{
+    template <typename FormatContext>
+    auto format(MxEngine::MxString str, FormatContext& ctx)
+    {
+        return formatter<string_view>::format(str.c_str(), ctx);
+    }
+};

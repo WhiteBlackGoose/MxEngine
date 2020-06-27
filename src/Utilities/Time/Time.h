@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -28,18 +28,34 @@
 
 #pragma once
 
-#include <string>
+#include "Utilities/STL/MxString.h"
 
 namespace MxEngine
 {
 	using TimeStep = float;
 	using SystemTime = time_t;
 
-	std::string BeautifyTime(TimeStep time);
+	/*!
+	creates human-readable time string (10ms, 1.3s and etc.)
+	\param time timestep to convert to string
+	\returns string object with beautifies timestep
+	*/
+	MxString BeautifyTime(TimeStep time);
 
+	/*!
+	time is a small utility class which uses application window timer to retrieve timestep since engine start
+	*/
 	struct Time
 	{
+		/*!
+		gets current time since engine start
+		\returns timestep measured in 1/100 of millisecond (depends on GLFW implementation)
+		*/
 		static TimeStep Current();
+		/*!
+		gets current system time (may not be fast, try avoiding calling it each frame)
+		/returns system time (uses chrono std library)
+		*/
 		static SystemTime System();
 	};
 }

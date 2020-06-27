@@ -1,27 +1,23 @@
 #pragma once
 
-#include <MxEngine.h>
-
-using namespace MxEngine;
-
-class DeathStarObject : public MxObject
+void InitDeathStar(MxObject& object)
 {
-public:
-	inline DeathStarObject()
-	{
-		auto context = Application::Get();
-		this->SetMesh(context->GetCurrentScene().LoadMesh("DeathStarMesh", "objects/death_star/death_star.obj"));
-		this->ObjectTexture = context->GetCurrentScene().LoadTexture("DeathStartTexture", "objects/death_star/texture.jpg");
+	auto objectPath = "objects/death_star/death_star.obj"_id;
 
-		this->ObjectTransform.Scale(0.00005f);
-		this->ObjectTransform.RotateX(-90.0f);
-		this->ObjectTransform.RotateZ(-90.0f);
-		this->ObjectTransform.Translate({ -10.0f, 10.0f, 10.0f });
-	}
+	object.AddComponent<MeshSource>(AssetManager::LoadMesh(objectPath));
+	object.AddComponent<MeshRenderer>(AssetManager::LoadMaterials(objectPath));
 
-	inline virtual void OnUpdate() override
+	object.Transform->Scale(0.00005f);
+	object.Transform->RotateX(-90.0f);
+	object.Transform->RotateZ(-90.0f);
+	object.Transform->Translate({ -10.0f, 10.0f, 10.0f });
+
+	struct DeathStarBehaviour
 	{
-		float dt = Application::Get()->GetTimeDelta();
-		this->ObjectTransform.RotateZ(2.0f * dt);
-	}
-};
+		void OnUpdate(MxObject& object, float dt)
+		{
+			object.Transform->RotateY(2.0f * dt);
+		}
+	};
+	object.AddComponent<Behaviour>(DeathStarBehaviour{ });
+}

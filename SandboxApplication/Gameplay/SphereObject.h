@@ -1,21 +1,16 @@
 #pragma once
 
-#include <MxEngine.h>
-#include <Library/Primitives/Sphere.h>
-#include <Library/Primitives/Colors.h>
-
-using namespace MxEngine;
-
-class SphereObject : public Sphere
+void InitSphere(MxObject& sphere)
 {
-public:
-    inline SphereObject()
-    {
-        this->Translate(-13.0f, 1.0f, 2.0f);
-        auto& scene = Application::Get()->GetCurrentScene();
-        auto& material = this->GetMesh()->GetRenderObjects()[0].GetMaterial();
-        this->ObjectTexture = scene.LoadTexture("PlanetTexture", "textures/planet_texture.png");
-        material.map_height = Graphics::Instance()->CreateTexture("Resources/textures/planet_height.png");
-        material.map_normal = Graphics::Instance()->CreateTexture("Resources/textures/planet_normal.png");
-    }
-};
+    sphere.Transform->Translate(MakeVector3(-13.0f, 1.0f, 2.0f));
+
+    sphere.Name = "Sphere";
+    auto sphereTexture = AssetManager::LoadTexture("textures/planet_texture.png"_id);
+    sphere.AddComponent<MeshSource>(Primitives::CreateSphere());
+    
+    auto material = sphere.GetOrAddComponent<MeshRenderer>()->GetMaterial();
+    material->AmbientMap = sphereTexture;
+    material->DiffuseMap = sphereTexture;
+    material->HeightMap = AssetManager::LoadTexture("textures/planet_height.png"_id);
+    material->NormalMap = AssetManager::LoadTexture("textures/planet_normal.png"_id);
+}

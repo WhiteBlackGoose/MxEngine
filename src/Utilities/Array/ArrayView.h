@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -31,6 +31,7 @@
 #include <array>
 #include <vector>
 #include "Core/Macro/Macro.h"
+#include "Utilities/STL/MxVector.h"
 
 namespace MxEngine
 {
@@ -57,6 +58,7 @@ namespace MxEngine
         template<size_t N>
         array_view(std::array<T, N>& array);
         array_view(std::vector<T>& vec);
+        array_view(MxVector<T>& vec);
         template<typename RandomIt>
         array_view(RandomIt begin, RandomIt end);
         size_t size() const;
@@ -95,6 +97,13 @@ namespace MxEngine
 
     template<typename T>
     inline array_view<T>::array_view(std::vector<T>& vec)
+    {
+        this->_data = vec.data();
+        this->_size = vec.size();
+    }
+
+    template<typename T>
+    inline array_view<T>::array_view(MxVector<T>& vec)
     {
         this->_data = vec.data();
         this->_size = vec.size();
@@ -167,7 +176,7 @@ namespace MxEngine
     }
 
     template<typename T>
-    inline T* array_view<T>::begin()
+    inline T* array_view<T>::begin() //-V524
     {
         return this->_data;
     }
@@ -179,7 +188,7 @@ namespace MxEngine
     }
 
     template<typename T>
-    inline const T* array_view<T>::begin() const
+    inline const T* array_view<T>::begin() const //-V524
     {
         return this->_data;
     }

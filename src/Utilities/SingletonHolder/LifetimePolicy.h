@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -28,14 +28,15 @@
 
 #pragma once
 
-#include <exception>
-
 // Andrei's Alexandrescu SingletonHolder (see "Modern C++ Design" ch. 6)
 
 namespace MxEngine
 {
 	using AtExitFunctionPointer = void (*)();
 
+	/*!
+	lifetime policy of singleton which shedules destruction function call at program exit
+	*/
 	template <class T>
 	class DefaultLifetime
 	{
@@ -45,12 +46,12 @@ namespace MxEngine
 			std::atexit(func);
 		}
 
-		static inline void OnDeadReference()
-		{
-			throw std::exception("[singleton error]: dead reference detected");
-		}
+		static inline void OnDeadReference() { }
 	};
 
+	/*!
+	lifetime policy of singleton which does not destroy an object
+	*/
 	template <class T>
 	class NoDestroy
 	{
@@ -60,6 +61,9 @@ namespace MxEngine
 		static inline void OnDeadReference() { }
 	};
 
+	/*!
+	lifetime policy of singleton which shedules object destruction, but allow it be recreated many times
+	*/
 	template <class T>
 	class PhoenixSingleton
 	{
@@ -76,7 +80,6 @@ namespace MxEngine
 		}
 
 	private:
-		static bool destroyedOnce;
+		inline static bool destroyedOnce = false;
 	};
-	template<typename T> bool PhoenixSingleton<T>::destroyedOnce = false;
 }

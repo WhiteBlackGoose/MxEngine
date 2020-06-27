@@ -1,14 +1,14 @@
 // Copyright(c) 2019 - 2020, #Momo
 // All rights reserved.
 // 
-// Redistributionand use in source and binary forms, with or without
+// Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
 // 
 // 1. Redistributions of source code must retain the above copyright notice, this
-// list of conditionsand the following disclaimer.
+// list of conditions and the following disclaimer.
 // 
 // 2. Redistributions in binary form must reproduce the above copyright notice,
-// this list of conditionsand the following disclaimer in the documentation
+// this list of conditions and the following disclaimer in the documentation
 // and /or other materials provided with the distribution.
 // 
 // 3. Neither the name of the copyright holder nor the names of its
@@ -33,10 +33,12 @@
 #include "Utilities/Threading/ThreadingModel.h"
 #include "Core/Macro/Macro.h"
 
-// Andrei's Alexandrescu SingletonHolder (see "Modern C++ Design" ch. 6)
-
 namespace MxEngine
 {
+	/*!
+	this is Andrei's Alexandrescu SingletonHolder (see "Modern C++ Design" ch. 6)
+	it uses policy-based design which allows to configure class behaviour at compile-time
+	*/
 	template<
 		typename T,
 		template<typename> class CreationPolicy = CreateWithNew,
@@ -47,9 +49,18 @@ namespace MxEngine
 	{
 		using InstanceType = typename ThreadingModel<T>::VolatileType;
 
-		static InstanceType* instance;
-		static bool destroyed;
+		/*!
+		singleton instance of class
+		*/
+		inline static InstanceType* instance = nullptr;
+		/*!
+		is singleton already destroyed or not
+		*/
+		inline static bool destroyed = false;
 
+		/*!
+		destroys sigleton object depending on policy
+		*/
 		static inline void DestroySingleton()
 		{
 			MX_ASSERT(instance != nullptr);
@@ -62,6 +73,10 @@ namespace MxEngine
 		SingletonHolder(const SingletonHolder&) = delete;
 		SingletonHolder& operator=(const SingletonHolder&) = delete;
 
+		/*!
+		singleton inner object getter. Creates instance, if it not exists, handles destroyed reference access
+		\returns reference to singleton object instance
+		*/
 		static inline T& Instance()
 		{
 			if (instance == nullptr)
@@ -79,14 +94,4 @@ namespace MxEngine
 			return *instance;
 		}
 	};
-
-	#define SINGLETON_TEMPLATE(T, C, L, M) template<typename T, template<typename> typename C, template<typename> typename L, template<typename> typename M>
-
-	SINGLETON_TEMPLATE(T, C, L, M)
-	bool SingletonHolder<T, C, L, M>::destroyed = false;
-
-	SINGLETON_TEMPLATE(T, C, L, M)
-	typename SingletonHolder<T, C, L, M>::InstanceType* SingletonHolder<T, C, L, M>::instance = nullptr;
-
-	#undef SINGLETON_TEMPLATE
 }
