@@ -132,6 +132,7 @@
     <ClInclude Include="Utilities\ObjectLoader\ObjectLoader.h" />
     <ClInclude Include="Utilities\Profiler\Profiler.h" />
     <ClInclude Include="Utilities\Random\Random.h" />
+    <ClInclude Include="Utilities\StaticRenderer\StaticRenderer.h" />
     <ClInclude Include="Utilities\STL\MxFunction.h" />
     <ClInclude Include="Utilities\STL\MxHashMap.h" />
     <ClInclude Include="Utilities\STL\MxHashSet.h" />
@@ -429,6 +430,7 @@
     <ClCompile Include="Utilities\ObjectLoader\ObjectLoader.cpp" />
     <ClCompile Include="Utilities\Profiler\Profiler.cpp" />
     <ClCompile Include="Utilities\Random\Random.cpp" />
+    <ClCompile Include="Utilities\StaticRenderer\StaticRenderer.cpp" />
     <ClCompile Include="Utilities\STL\Vsnprintf.cpp" />
     <ClCompile Include="Utilities\UUID\UUID.cpp" />
     <ClCompile Include="Utilities\Time\Time.cpp" />
